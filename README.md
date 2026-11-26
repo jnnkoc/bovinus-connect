@@ -1,42 +1,99 @@
-# Bovinu’s Augusta — Dados e integração
+# Bovinu's Connect — MVP do Hackathon (FMU)
 
-## Executar
+Aplicação web responsiva que liga a **intenção de visita** do cliente do almoço self-service da Bovinu's Grill & Beer
+(Unidade Augusta) aos registros de **chegada, buffet, saída e satisfação**, alimentando um **dashboard gerencial**.
 
-1. Extraia todos os arquivos do ZIP para uma pasta.
-2. Abra um terminal nessa pasta e execute `py app.py` no Windows ou `python3 app.py` no Linux/macOS. É necessário Python 3.10 ou mais recente. Nenhum pacote extra é necessário.
-3. Abra http://127.0.0.1:8000 no navegador. O banco `bovinus.db` será criado automaticamente na pasta do projeto.
-4. Abra **Gerar visita de teste**, preencha o horário previsto e copie o código. Na mesma tela você já pode registrar chegada, primeira pesagem e saída. Para recuperar a visita depois, use **Buscar**.
+> Os números exibidos vêm de `seed.py` e são **dados simulados** (identificados na interface). Nenhum número é dado real da Bovinu's.
 
-O terminal mostra os horários no fuso de São Paulo. O campo de teste interpreta o horário previsto no fuso configurado no navegador.
+## Como rodar
 
-## Banco SQLite
+Requisito: **Python 3.10+** (só biblioteca padrão, nenhum pacote extra).
 
-- `intencao` guarda o código único e o horário previsto.
-- `visita` usa como chave primária a chave estrangeira para `intencao`. Cada intenção pode gerar uma visita, criada no check-in.
-- `avaliacao` guarda até uma resposta por visita.
-- A view `jornada` inclui intenções sem check-in para o cálculo da conversão.
+```bash
+py seed.py      # (opcional) apaga e recria bovinus.db com dados simulados
+py app.py       # inicia o servidor
+```
 
-A API grava horários em UTC no formato ISO 8601 e registra as etapas na ordem chegada → primeira pesagem → saída. Repetir uma etapa retorna o registro anterior com o mesmo horário. O código digitável tem 12 caracteres hexadecimais.
+No Linux/macOS use `python3`. No Windows também dá para dar dois cliques em **`iniciar.bat`**: ele cria os dados simulados
+se o banco não existir, abre o dashboard e sobe o servidor.
 
-## Contrato para as outras frentes
+Abra http://127.0.0.1:8000. O servidor também aceita conexões da rede local e mostra, ao iniciar, o endereço para abrir
+**no celular na mesma rede Wi-Fi** (o Windows pode pedir permissão no firewall na primeira vez).
+Variáveis opcionais: `BOVINUS_PORTA` (padrão 8000), `BOVINUS_HOST` (padrão `0.0.0.0`; use `127.0.0.1` para só este computador)
+e `BOVINUS_BANCO` (caminho do arquivo SQLite).
 
-| Método e rota | Corpo JSON | Uso |
+## Telas
+
+| Rota | Arquivo | Para quem | O que faz |
+| --- | --- | --- | --- |
+| `/` | `cliente.html` | Cliente (celular) | Cardápio do dia, **Planejar visita** (dia, horário, até 3 pratos, pessoas, nome, celular e aceite LGPD) → código `BOV-XXXX`; **Minha visita** (só acompanha o status, atualiza a cada 10 s, "Você já veio X vezes") |
+| `/avaliar` | `avaliar.html` | Cliente | Após a saída: NPS 0–10 + notas 1–5 de Buffet, Espera e Atendimento + comentário |
+| `/terminal` | `terminal.html` | Totem e equipe | Modos **Entrada** (check-in pelo código ou "Sou cliente espontâneo"), **Balança** (buffet concluído, opcional) e **Caixa** (check-out + mesa opcional). O sistema registra a etapa do modo; confirmação de 2 s e volta ao início. `?modo=caixa` abre direto no modo |
+| `/cardapio` | `cardapio.html` | Gerente | Cardápio por data: adicionar, editar, remover, destaque, vegetariano, copiar do dia anterior, prévia do app |
+| `/dashboard` | `dashboard.html` | Gerente | **Hoje (ao vivo)**: cartões, chegadas previstas × reais por 15 min, próximas chegadas, pratos desejados, funil dos planejados, Modo TV. **Análise**: tendências, insights por regras, satisfação, comentários, recorrência, pratos pouco desejados, visitas recentes, exportar CSV |
+
+## Fluxo da demonstração
+
+1. `py seed.py` e `py app.py`.
+2. `/cardapio`: confira o cardápio de hoje (ou copie o do dia anterior).
+3. `/` no celular: **Planejar visita** → anote o código `BOV-XXXX`.
+4. `/terminal?modo=entrada`: digite o código → check-in. Teste também **Sou cliente espontâneo**.
+5. `/terminal?modo=balanca` (opcional) e `/terminal?modo=caixa` → saída.
+6. `/avaliar?codigo=BOV-XXXX` → avaliação.
+7. `/dashboard`: veja os números mudarem (atualiza a cada 10 s).
+
+## Banco (SQLite, `schema.sql`)
+
+`cliente` · `prato` · `cardapio_dia` · `intencao` · `intencao_prato` · `visita` · `avaliacao` · `parametro`, e a view `jornada`.
+
+- Horários gravados em **UTC ISO 8601**; exibidos em `America/Sao_Paulo` (UTC−3 fixo, sem horário de verão).
+- `visita` tem código próprio e `origem` (`planejado` | `espontaneo`). No planejado, o código da intenção vira o código da visita no check-in.
+- O **buffet é opcional**: o check-out só exige o check-in.
+- Visita aberta há mais de 3 h é fechada com `saida_estimada = 1` e fica fora da permanência média.
+- Códigos `BOV-XXXX` sem 0/O e 1/I, únicos entre intenções e visitas.
+- `PRAGMA user_version = 2`. Se existir um `bovinus.db` da versão anterior, o `app.py` o renomeia para `bovinus.db.v1.bak` e cria um novo.
+
+## Contrato da API
+
+Corpo e respostas em JSON. Erros retornam `{"erro": "mensagem"}` com 400 (dados inválidos), 404 (não encontrado) ou 409 (conflito ou etapa fora de ordem).
+O código aceita `BOV-ABCD`, `bov-abcd` ou só `ABCD`.
+
+| Método e rota | Corpo | Resposta |
 | --- | --- | --- |
-| POST /api/intencoes | `{"horario_previsto":"2026-11-25T12:30:00-03:00"}` | O site cria a intenção e exibe o campo `codigo_visita` da resposta (201). |
-| GET /api/jornadas/{codigo} | — | Consulta a visita pelo código. |
-| POST /api/jornadas/{codigo}/check-in | `{}` | Confirma a chegada. |
-| POST /api/jornadas/{codigo}/buffet | `{}` | Registra a primeira pesagem. |
-| POST /api/jornadas/{codigo}/check-out | `{}` | Registra a saída. |
-| POST /api/jornadas/{codigo}/avaliacao | `{"nota_nps":9,"comentario":"Bom atendimento"}` | Registra a avaliação após a saída. O comentário é opcional. |
-| GET /api/jornadas | — | Entrega ao painel a lista de todas as intenções, com os dados da visita quando houver. |
+| `GET /api/cardapio?data=AAAA-MM-DD` | — | `{data, pratos:[{id, nome, categoria, descricao, vegetariano, destaque}]}` (sem `data` = hoje) |
+| `POST /api/cardapio/{data}` | `{nome, categoria, descricao?, vegetariano?, destaque?}` | 201 + cardápio do dia |
+| `PUT /api/cardapio/{data}/{prato_id}` | mesmos campos | cardápio do dia |
+| `DELETE /api/cardapio/{data}/{prato_id}` | — | cardápio do dia (o prato sai só daquele dia) |
+| `POST /api/cardapio/{data}/copiar-anterior` | — | cardápio do dia + `copiado_de` |
+| `POST /api/intencoes` | `{horario_previsto, pessoas, pratos:[ids, até 3], nome, celular, aceite_lgpd:true}` | 201 + visita |
+| `POST /api/visitas` | — | 201 + visita espontânea já com check-in |
+| `GET /api/jornadas/{codigo}` | — | visita (sem dados pessoais) |
+| `POST /api/jornadas/{codigo}/proxima` | `{modo: "entrada" \| "balanca" \| "caixa", mesa?}` | `{etapa, repetido, horario, mensagem, visita}` |
+| `POST /api/jornadas/{codigo}/avaliacao` | `{nota_nps 0–10, nota_buffet, nota_espera, nota_atendimento 1–5, comentario?}` | 201 + visita |
+| `GET /api/clientes/{celular}` | — | `{visitas}` (visitas com check-out) |
+| `GET /api/dashboard/hoje?data=` | — | cartões, série por 15 min, próximas chegadas, pratos, funil |
+| `GET /api/dashboard/analise?inicio=&fim=` | — | resumo, dias, satisfação, comentários, recorrência, pratos pouco desejados, recentes, insights (padrão: últimos 7 dias) |
+| `GET /api/visitas.csv?inicio=&fim=` | — | CSV (`;`, UTF-8 com BOM para o Excel) |
 
-Cada registro contém `codigo_visita`, `horario_previsto`, `check_in_em`, `buffet_concluido_em`, `check_out_em`, `nota_nps` e `comentario`. Campos ainda sem registro retornam `null`. As operações bem-sucedidas retornam 200, exceto a criação da intenção. Os erros retornam um objeto com o campo `erro`. Código desconhecido gera 404 e etapa fora de ordem gera 409.
+**Visita** = `{codigo, origem, status: "aguardando" | "em_andamento" | "encerrada", horario_previsto, pessoas, pratos:[nomes],
+check_in_em, buffet_concluido_em, check_out_em, saida_estimada, mesa, avaliada, visitas_cliente}`.
 
-Para a integração local, sirva as telas pela mesma origem do backend ou encaminhe as chamadas `/api` pelo servidor do frontend. O protótipo escuta apenas no próprio computador e foi preparado para demonstração local com dados fictícios. A publicação exigirá controle de acesso às operações do terminal e à listagem do painel.
+**`/proxima`**: em `entrada`, faz o check-in; em `balanca`, registra o buffet (exige check-in); em `caixa`, registra o check-out
+(exige check-in; substitui uma saída estimada). Repetir uma etapa não altera nada e devolve `repetido: true` com o horário original.
 
-## Leitura para o painel
+## Indicadores
 
-- Use check-in até primeira pesagem para medir o percurso completo da entrada à balança. Esse intervalo inclui a escolha dos alimentos e eventuais esperas.
-- Use check-in até check-out para medir a permanência.
-- Calcule a conversão a partir das intenções cujo período de chegada já terminou e conte quantas têm check-in.
-- Calcule o NPS somente com as avaliações recebidas.
+Definições em `docs/ESPECIFICACAO.md` ("Definição dos indicadores"): conversão da intenção (só planejados, após previsto + 30 min),
+planejados × espontâneos, no salão agora, permanência (só check-out real), tempo até a balança, NPS, satisfação por tema,
+recorrência por celular, chegadas previstas (pessoas) × reais (check-ins) por 15 min e pratos desejados.
+
+## Segurança e privacidade (limites do MVP)
+
+- Protótipo para demonstração local com dados fictícios: **não há login**. Antes de publicar, proteger `/terminal`,
+  `/cardapio`, `/dashboard` e as rotas de escrita e de painel.
+- A consulta pública da visita não devolve nome nem celular. O celular só é usado para contar visitas, com aceite LGPD registrado.
+
+## Próximos passos (fora deste MVP)
+
+QR code no app e leitura pela câmera no terminal (bibliotecas locais em `vendor/`), mapa de mesas com tempo de mesa suja,
+foto do prato na balança com IA, chamado de garçom, benefícios de fidelidade e outras unidades.

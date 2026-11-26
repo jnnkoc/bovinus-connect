@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#7d1d1f">
+<title>Avalie sua visita · Bovinu's Connect</title>
+<link rel="icon" href="/img/logo.png">
+<link rel="stylesheet" href="/estilo.css">
+<style>
+.escala { display: grid; gap: 6px; }
+.escala.nps { grid-template-columns: repeat(11, 1fr); }
+.escala.tema { grid-template-columns: repeat(5, 1fr); }
+.escala button { border: 1.5px solid var(--borda); background: #fff; border-radius: 10px; min-height: 48px; font-weight: 700;
+                 cursor: pointer; padding: 0; font-size: 1.05rem; }
+.escala button:hover { border-color: var(--bordo); }
+.escala button[aria-pressed=true] { background: var(--bordo); color: #fff; border-color: var(--bordo); }
+.extremos { display: flex; justify-content: space-between; font-size: .78rem; color: var(--texto-2); margin-top: .3rem; }
+.tema-cab { display: flex; gap: .7rem; align-items: center; margin-bottom: .5rem; }
+.tema-cab .icone-cat { width: 40px; height: 40px; font-size: 1.2rem; background: var(--creme-2); }
+@media (max-width: 420px) { .escala.nps { grid-template-columns: repeat(6, 1fr); } }
+</style>
+</head>
+<body>
+<header class="topo">
+  <a class="voltar" href="/" aria-label="Voltar ao início" style="color:#fff;text-decoration:none;font-size:1.5rem;padding:.2rem .5rem">←</a>
+  <span class="logo"><img src="/img/logo.png" alt="Bovinu's Grill & Beer"></span>
+  <div class="titulo"><strong>Avaliação da experiência</strong><span>Unidade Augusta</span></div>
+</header>
+
+<main class="conteudo pilha">
+  <form id="form-codigo" class="cartao" novalidate>
+    <div class="campo"><label for="codigo">Código da visita</label>
+      <div class="linha"><input id="codigo" type="text" placeholder="BOV-XXXX" autocomplete="off" spellcheck="false"
+             style="flex:1; text-transform:uppercase; font-weight:700; letter-spacing:.05em">
+        <button class="btn btn-primario">Continuar</button></div>
+      <span class="ajuda">O código foi mostrado no app ou no totem da entrada.</span></div>
+  </form>
+  <p id="aviso" class="alerta" role="alert" hidden></p>
+
+  <form id="form-avaliacao" class="pilha" hidden novalidate>
+    <div class="cartao">
+      <h2>De 0 a 10, quanto você recomendaria a Bovinu's a um amigo?</h2>
+      <div class="escala nps" id="nps" role="group" aria-label="Nota de 0 a 10"></div>
+      <div class="extremos"><span>0 · Nada provável</span><span>10 · Muito provável</span></div>
+    </div>
+    <div class="cartao pilha" id="temas">
+      <h2>Como foi cada parte? <span class="mudo pequeno">(1 a 5)</span></h2>
+    </div>
+    <div class="cartao campo">
+      <label for="comentario">Quer contar mais alguma coisa? <span class="mudo pequeno">(opcional)</span></label>
+      <textarea id="comentario" maxlength="500" placeholder="Elogios, sugestões, o que podemos melhorar…"></textarea>
+      <span class="ajuda"><span id="conta">0</span>/500</span>
+    </div>
+    <p id="erro" class="alerta alerta-erro" role="alert" hidden></p>
+    <button class="btn btn-primario btn-grande btn-bloco" id="enviar">Enviar avaliação ✓</button>
+  </form>
+
+  <div id="obrigado" class="cartao centro pilha" hidden>
+    <div style="font-size:3rem" aria-hidden="true">🙏</div>
+    <h1>Obrigado pela avaliação!</h1>
+    <p class="mudo">Sua opinião ajuda a Bovinu's a melhorar o buffet, a espera e o atendimento.</p>
+    <a class="btn btn-contorno" href="/">Voltar ao início</a>
+  </div>
+</main>
+
+<script src="/comum.js"></script>
+<script>
+const TEMAS = [
+  ['buffet', '🍽️', 'Buffet', 'Variedade, qualidade e reposição'],
+  ['espera', '⏱️', 'Espera', 'Filas no buffet, na churrasqueira e no caixa'],
+  ['atendimento', '🙋', 'Atendimento', 'Atenção e cordialidade da equipe'],
+];
+const ROTULOS = ['', 'Ruim', 'Regular', 'Bom', 'Muito bom', 'Excelente'];
+const notas = { nps: null, buffet: null, espera: null, atendimento: null };
+let codigoAtual = null;
+
+function escala(id, de, ate) {
+  const caixa = document.getElementById(id);
+  for (let n = de; n <= ate; n++) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = n; b.setAttribute('aria-pressed', 'false');
+    if (id !== 'nps') b.title = ROTULOS[n];
+    b.onclick = () => {
+      notas[id] = n;
+      caixa.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      const rot = document.getElementById('rot-' + id);
+      if (rot) rot.textContent = ROTULOS[n];
+    };
+    caixa.append(b);
+  }
+}
+escala('nps', 0, 10);
+TEMAS.forEach(([id, icone, nome, desc]) => {
+  const bloco = document.createElement('div');
+  bloco.innerHTML = `<div class="tema-cab"><span class="icone-cat" aria-hidden="true">${icone}</span>
+    <div><strong>${nome}</strong> <span class="selo selo-bordo" id="rot-${id}" style="margin-left:.3rem"></span>
+    <br><span class="mudo pequeno">${desc}</span></div></div>
+    <div class="escala tema" id="${id}" role="group" aria-label="Nota de ${nome}"></div>
+    <div class="extremos"><span>1 · Ruim</span><span>5 · Excelente</span></div>`;
+  document.getElementById('temas').append(bloco);
+  escala(id, 1, 5);
+});
+
+const comentario = document.getElementById('comentario');
+comentario.oninput = () => document.getElementById('conta').textContent = comentario.value.length;
+
+function aviso(texto, tipo) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto; el.className = 'alerta alerta-' + tipo; el.hidden = !texto;
+}
+
+async function carregar() {
+  const codigo = normalizarCodigo(document.getElementById('codigo').value);
+  document.getElementById('form-avaliacao').hidden = true;
+  if (!codigo) return aviso('Digite o código no formato BOV-XXXX.', 'erro');
+  try {
+    const v = await api('/api/jornadas/' + codigo);
+    document.getElementById('codigo').value = v.codigo;
+    codigoAtual = v.codigo;
+    if (v.avaliada) return aviso('Esta visita já foi avaliada. Obrigado!', 'ok');
+    if (v.status !== 'encerrada') return aviso('A avaliação fica disponível depois que a saída é registrada no caixa.', 'aviso');
+    aviso('', 'info');
+    document.getElementById('form-avaliacao').hidden = false;
+  } catch (e) { aviso(e.message, 'erro'); }
+}
+document.getElementById('form-codigo').addEventListener('submit', e => { e.preventDefault(); carregar(); });
+
+document.getElementById('form-avaliacao').addEventListener('submit', async e => {
+  e.preventDefault();
+  const erro = document.getElementById('erro');
+  if (notas.nps === null) { erro.textContent = 'Escolha uma nota de 0 a 10.'; erro.hidden = false; return; }
+  if (TEMAS.some(([id]) => notas[id] === null)) { erro.textContent = 'Dê uma nota de 1 a 5 para Buffet, Espera e Atendimento.'; erro.hidden = false; return; }
+  erro.hidden = true;
+  const botao = document.getElementById('enviar');
+  botao.disabled = true;
+  try {
+    await api(`/api/jornadas/${codigoAtual}/avaliacao`, { dados: {
+      nota_nps: notas.nps, nota_buffet: notas.buffet, nota_espera: notas.espera,
+      nota_atendimento: notas.atendimento, comentario: comentario.value.trim(),
+    } });
+    document.getElementById('form-avaliacao').hidden = true;
+    document.getElementById('form-codigo').hidden = true;
+    document.getElementById('obrigado').hidden = false;
+  } catch (err) { erro.textContent = err.message; erro.hidden = false; }
+  finally { botao.disabled = false; }
+});
+
+const inicial = new URLSearchParams(location.search).get('codigo') || localStorage.getItem('bovinus_codigo');
+if (inicial) { document.getElementById('codigo').value = inicial; carregar(); }
+</script>
+</body>
+</html>

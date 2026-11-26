@@ -24,12 +24,12 @@ Próximos passos (NÃO construir agora): foto do prato na balança com IA, chama
 
 ## Telas
 
-Referências visuais em `docs/referencias/`. Use como **inspiração de layout e cores**, aplicando as correções desta seção. **Não reproduzir fotos nem fundo de fogo**: usar cores sólidas. Logo: usar arquivo oficial se existir em `docs/referencias/logo.*`; senão, o nome "Bovinu's Grill & Beer" em texto.
+Referências visuais em `docs/referencias/`. Use como **inspiração de layout e cores**, aplicando as correções desta seção. **Não reproduzir fotos nem fundo de fogo**: usar cores sólidas. Logo: usar arquivo oficial se existir em `docs/referencias/logo.*`; senão, o nome "Bovinu's Grill & Beer" em texto. O logo oficial está em `docs/referencias/logo.png` e é servido por `img/logo.png` (recortado na elipse pelo CSS `.logo`).
 
 ### 1. App do cliente (`cliente.html`, rota `/`) — ref. `cliente-app.png`, `cliente-site.png`
 Uma única versão web, mobile-first (não fazer site e app separados).
 - **Início**: cardápio do dia + botão "Planejar visita" + "Minha visita".
-- **Planejar**: categorias (Churrasco, Acompanhamento, Salada, Sobremesa) que abrem os pratos do dia para marcar; horário previsto; nº de pessoas; nome e celular com aceite LGPD.
+- **Planejar**: categorias (Churrasco, Acompanhamento, Salada, Sobremesa) que abrem os pratos do dia para marcar (**até 3 pratos de interesse**); horário previsto; nº de pessoas; nome e celular com aceite LGPD.
 - **Código da visita**: código grande (formato `BOV-XXXX`) + QR. Texto: "Mostre este código na entrada".
 - **Minha visita (acompanhamento)**: o cliente digita o código e **só vê** o status (Aguardando chegada → Visita em andamento → Visita encerrada), atualizando sozinho. **O cliente nunca registra check-in, buffet ou saída pelo app.**
 - **Fidelidade**: "Você já veio X vezes" (contagem por celular, só visitas com check-out).
@@ -100,7 +100,10 @@ Planejado: o código da intenção vira o código da visita no check-in. Espont�
 - `seed.py` — dados simulados
 - `cliente.html`, `avaliar.html`, `terminal.html`, `cardapio.html`, `dashboard.html`, `mesas.html`
 - `estilo.css` — estilo compartilhado
-- `vendor/` — bibliotecas JS locais
+- `comum.js` — utilitários JS compartilhados (API, formatação, menu lateral)
+- `img/` — logo oficial
+- `iniciar.bat` — atalho para Windows (cria dados simulados se faltar o banco e sobe o servidor)
+- `vendor/` — bibliotecas JS locais (ainda vazio)
 - `docs/` — documentação de entrega e `docs/referencias/` (mockups)
 
 ## Identidade visual

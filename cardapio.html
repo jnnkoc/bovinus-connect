@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cardápio do dia · Bovinu's Connect</title>
+<link rel="icon" href="/img/logo.png">
+<link rel="stylesheet" href="/estilo.css">
+<style>
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1.25rem; align-items: start; }
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } .previa { display: none; } }
+.form-grade { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem 1rem; }
+.form-grade .inteiro { grid-column: 1 / -1; }
+@media (max-width: 600px) { .form-grade { grid-template-columns: 1fr; } }
+.celula-prato { display: flex; gap: .7rem; align-items: center; min-width: 220px; }
+.celula-prato .icone-cat { width: 40px; height: 40px; font-size: 1.2rem; }
+.celula-prato .desc { font-size: .8rem; color: var(--texto-2); }
+.destaque-btn { border: 0; border-radius: 999px; padding: .25rem .7rem; font-weight: 650; cursor: pointer; font-size: .8rem; }
+.destaque-btn.sim { background: var(--ambar-claro); color: var(--aviso); }
+.destaque-btn.nao { background: var(--creme-2); color: var(--texto-2); }
+.celular { background: #241614; border-radius: 36px; padding: 12px; box-shadow: var(--sombra); }
+.celular .tela { background: var(--creme); border-radius: 26px; overflow: hidden; max-height: 600px; overflow-y: auto; }
+.celular .tela-topo { background: var(--bordo); color: #fff; padding: .8rem; display: flex; gap: .5rem; align-items: center; font-weight: 700; font-size: .9rem; }
+.celular .tela-topo .logo { width: 72px; height: 35px; }
+.celular .tela-topo .logo img { width: 89px; height: 89px; margin: -23px 0 0 -8px; }
+.celular .item { display: flex; gap: .5rem; align-items: center; background: var(--papel); margin: .4rem .6rem; padding: .45rem .55rem; border-radius: 10px; font-size: .85rem; }
+.celular .item .icone-cat { width: 32px; height: 32px; font-size: 1rem; border-radius: 8px; }
+.editando { outline: 3px solid var(--ambar); }
+</style>
+</head>
+<body>
+<div class="admin">
+  <nav class="lateral" aria-label="Menu"></nav>
+  <div class="principal">
+    <header class="cabeca">
+      <div><h1>Cardápio do dia</h1><div class="sub">Pratos que aparecem no app do cliente</div></div>
+      <div class="acoes">
+        <label for="data" class="pequeno">Data</label>
+        <input type="date" id="data">
+        <button class="btn btn-ambar" id="copiar">⧉ Copiar cardápio do dia anterior</button>
+      </div>
+    </header>
+    <div class="corpo pilha">
+      <div class="kpis">
+        <div class="kpi"><div class="rotulo">Pratos no cardápio</div><div class="valor" id="k-total">—</div></div>
+        <div class="kpi"><div class="rotulo">Categorias ativas</div><div class="valor" id="k-cat">—</div><div class="detalhe">de 4</div></div>
+        <div class="kpi"><div class="rotulo">Pratos em destaque</div><div class="valor" id="k-dest">—</div></div>
+        <div class="kpi"><div class="rotulo">Vegetarianos</div><div class="valor" id="k-veg">—</div></div>
+      </div>
+
+      <div class="layout">
+        <div class="pilha">
+          <form class="cartao" id="form" novalidate>
+            <div class="cartao-cabeca"><h2 id="form-titulo">＋ Adicionar prato</h2>
+              <span class="mudo pequeno" id="form-data"></span></div>
+            <div class="form-grade">
+              <div class="campo"><label for="nome">Nome do prato *</label><input id="nome" type="text" maxlength="60" required></div>
+              <div class="campo"><label for="categoria">Categoria *</label><select id="categoria"></select></div>
+              <div class="campo inteiro"><label for="descricao">Descrição curta</label>
+                <input id="descricao" type="text" maxlength="120" placeholder="Ex.: Fatiada na hora, direto da churrasqueira.">
+                <span class="ajuda"><span id="conta-desc">0</span>/120</span></div>
+              <div class="linha inteiro" style="gap:2rem">
+                <label class="interruptor"><input type="checkbox" id="destaque"> ★ Destaque do dia</label>
+                <label class="interruptor"><input type="checkbox" id="vegetariano"> 🌱 Vegetariano</label>
+              </div>
+            </div>
+            <p id="erro" class="alerta alerta-erro" role="alert" hidden style="margin-top:1rem"></p>
+            <div class="linha" style="justify-content:flex-end;margin-top:1rem">
+              <button type="button" class="btn btn-contorno" id="limpar">Limpar</button>
+              <button class="btn btn-primario" id="salvar">＋ Adicionar prato</button>
+            </div>
+          </form>
+
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Pratos do dia</h2><span class="mudo pequeno" id="lista-data"></span></div>
+            <div class="tabela-rolagem">
+              <table class="tabela">
+                <thead><tr><th>Prato</th><th>Categoria</th><th>Vegetariano</th><th>Destaque</th><th class="num">Ações</th></tr></thead>
+                <tbody id="lista"></tbody>
+              </table>
+            </div>
+            <p id="vazio" class="alerta alerta-info" hidden>Nenhum prato neste dia. Adicione acima ou copie o cardápio do dia anterior.</p>
+          </div>
+        </div>
+
+        <aside class="previa">
+          <h2 style="font-size:1rem">📱 Prévia do app do cliente</h2>
+          <div class="celular"><div class="tela">
+            <div class="tela-topo"><span class="logo"><img src="/img/logo.png" alt=""></span>Cardápio do dia</div>
+            <p class="pequeno mudo" style="margin:.6rem .8rem 0" id="previa-data"></p>
+            <div id="previa"></div>
+            <div style="height:.6rem"></div>
+          </div></div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/comum.js"></script>
+<script>
+montarLateral('/cardapio');
+const campoData = document.getElementById('data');
+const form = document.getElementById('form');
+const nome = document.getElementById('nome'), categoria = document.getElementById('categoria');
+const descricao = document.getElementById('descricao'), destaque = document.getElementById('destaque');
+const vegetariano = document.getElementById('vegetariano');
+let pratos = [];
+let editando = null;
+
+Object.entries(CATEGORIAS).forEach(([v, c]) => categoria.add(new Option(c.nome, v)));
+campoData.value = new URLSearchParams(location.search).get('data') || hojeISO();
+descricao.oninput = () => document.getElementById('conta-desc').textContent = descricao.value.length;
+
+async function carregar() {
+  try {
+    pratos = (await api('/api/cardapio?data=' + campoData.value)).pratos;
+  } catch (e) { avisar(e.message, 'erro'); pratos = []; }
+  desenhar();
+}
+
+function desenhar() {
+  const dia = campoData.value;
+  const rotulo = dia === hojeISO() ? 'Hoje, ' + fmt.diaMes(dia) : fmt.dataLonga(dia);
+  ['form-data', 'lista-data', 'previa-data'].forEach(id => document.getElementById(id).textContent = rotulo);
+  document.getElementById('k-total').textContent = pratos.length;
+  document.getElementById('k-cat').textContent = new Set(pratos.map(p => p.categoria)).size;
+  document.getElementById('k-dest').textContent = pratos.filter(p => p.destaque).length;
+  document.getElementById('k-veg').textContent = pratos.filter(p => p.vegetariano).length;
+  document.getElementById('vazio').hidden = pratos.length > 0;
+  document.getElementById('lista').innerHTML = pratos.map(p => {
+    const c = CATEGORIAS[p.categoria];
+    return `<tr class="${editando === p.id ? 'editando' : ''}">
+      <td><div class="celula-prato"><span class="icone-cat cat-${p.categoria}" aria-hidden="true">${c.icone}</span>
+        <div><strong>${esc(p.nome)}</strong>${p.descricao ? `<div class="desc">${esc(p.descricao)}</div>` : ''}</div></div></td>
+      <td><span class="selo cat-${p.categoria}">${c.nome}</span></td>
+      <td>${p.vegetariano ? '<span class="selo selo-ok">🌱 Sim</span>' : '<span class="mudo pequeno">Não</span>'}</td>
+      <td><button class="destaque-btn ${p.destaque ? 'sim' : 'nao'}" data-destaque="${p.id}"
+           title="Tocar para ${p.destaque ? 'tirar o' : 'marcar como'} destaque">${p.destaque ? '★ Sim' : 'Não'}</button></td>
+      <td class="num" style="white-space:nowrap">
+        <button class="btn btn-fantasma" data-editar="${p.id}">✎ Editar</button>
+        <button class="btn btn-fantasma" data-remover="${p.id}" style="color:var(--erro)">🗑 Remover</button></td></tr>`;
+  }).join('');
+  document.getElementById('previa').innerHTML = pratos.length ? pratos.map(p => `
+    <div class="item"><span class="icone-cat cat-${p.categoria}">${CATEGORIAS[p.categoria].icone}</span>
+      <div style="flex:1"><strong>${esc(p.nome)}</strong><br><span class="mudo" style="font-size:.75rem">${CATEGORIAS[p.categoria].nome}</span></div>
+      ${p.destaque ? '<span style="color:var(--ambar)">★</span>' : ''}</div>`).join('')
+    : '<p class="pequeno mudo" style="margin:.8rem">O cliente verá: “O cardápio deste dia ainda não foi publicado.”</p>';
+}
+
+function limpar() {
+  editando = null;
+  form.reset();
+  document.getElementById('conta-desc').textContent = 0;
+  document.getElementById('form-titulo').textContent = '＋ Adicionar prato';
+  document.getElementById('salvar').textContent = '＋ Adicionar prato';
+  document.getElementById('erro').hidden = true;
+  desenhar();
+}
+document.getElementById('limpar').onclick = limpar;
+
+function dadosDe(p) {
+  return { nome: p.nome, categoria: p.categoria, descricao: p.descricao, vegetariano: p.vegetariano, destaque: p.destaque };
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const erro = document.getElementById('erro');
+  const dados = { nome: nome.value.trim(), categoria: categoria.value, descricao: descricao.value.trim(),
+                  destaque: destaque.checked, vegetariano: vegetariano.checked };
+  if (dados.nome.length < 2) { erro.textContent = 'Informe o nome do prato.'; erro.hidden = false; nome.focus(); return; }
+  try {
+    const rota = `/api/cardapio/${campoData.value}` + (editando ? `/${editando}` : '');
+    pratos = (await api(rota, { metodo: editando ? 'PUT' : 'POST', dados })).pratos;
+    avisar(editando ? 'Prato atualizado.' : 'Prato adicionado.', 'ok');
+    limpar();
+    nome.focus();
+  } catch (err) { erro.textContent = err.message; erro.hidden = false; }
+});
+
+document.getElementById('lista').addEventListener('click', async e => {
+  const alvo = e.target.closest('button');
+  if (!alvo) return;
+  const id = Number(alvo.dataset.editar || alvo.dataset.remover || alvo.dataset.destaque);
+  const p = pratos.find(x => x.id === id);
+  if (alvo.dataset.editar) {
+    editando = id;
+    nome.value = p.nome; categoria.value = p.categoria; descricao.value = p.descricao;
+    destaque.checked = p.destaque; vegetariano.checked = p.vegetariano;
+    document.getElementById('conta-desc').textContent = p.descricao.length;
+    document.getElementById('form-titulo').textContent = '✎ Editar prato';
+    document.getElementById('salvar').textContent = 'Salvar alterações';
+    desenhar();
+    form.scrollIntoView({ behavior: 'smooth' });
+    nome.focus();
+  } else if (alvo.dataset.remover) {
+    if (!confirm(`Remover "${p.nome}" do cardápio deste dia?`)) return;
+    try {
+      pratos = (await api(`/api/cardapio/${campoData.value}/${id}`, { metodo: 'DELETE' })).pratos;
+      if (editando === id) limpar(); else desenhar();
+      avisar('Prato removido do dia.', 'ok');
+    } catch (err) { avisar(err.message, 'erro'); }
+  } else if (alvo.dataset.destaque) {
+    try {
+      pratos = (await api(`/api/cardapio/${campoData.value}/${id}`, { metodo: 'PUT', dados: { ...dadosDe(p), destaque: !p.destaque } })).pratos;
+      desenhar();
+    } catch (err) { avisar(err.message, 'erro'); }
+  }
+});
+
+document.getElementById('copiar').onclick = async () => {
+  try {
+    const r = await api(`/api/cardapio/${campoData.value}/copiar-anterior`, { dados: {} });
+    pratos = r.pratos;
+    desenhar();
+    avisar(`Cardápio copiado de ${fmt.diaMes(r.copiado_de)}.`, 'ok');
+  } catch (err) { avisar(err.message, 'erro'); }
+};
+
+campoData.onchange = () => { history.replaceState(null, '', '?data=' + campoData.value); limpar(); carregar(); };
+carregar();
+</script>
+</body>
+</html>

@@ -1,128 +1,218 @@
 <!doctype html>
 <html lang="pt-BR">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Terminal de atendimento | Bovinu’s Augusta</title>
+<meta name="theme-color" content="#5a1214">
+<title>Terminal · Bovinu's Connect</title>
+<link rel="icon" href="/img/logo.png">
+<link rel="stylesheet" href="/estilo.css">
 <style>
-* { box-sizing: border-box; }
-body { margin: 0; background: #f6f1ea; color: #2d1f18; font: 1rem system-ui, sans-serif; }
-main { max-width: 730px; margin: auto; padding: 3rem 1.25rem; }
-header { margin-bottom: 2rem; }
-header p { color: #823619; font-weight: 700; margin: 0; }
-h1 { font-size: clamp(2rem, 6vw, 3rem); margin: .3rem 0; }
-section, details { background: white; padding: 1.4rem; border: 1px solid #e5dbd1; border-radius: 16px; margin-bottom: 1rem; }
-h2 { margin-top: 0; font-size: 1.25rem; }
-label { display: block; font-weight: 650; margin-bottom: .4rem; }
-.controls { display: flex; gap: .6rem; flex-wrap: wrap; }
-input, button { font: inherit; border-radius: 8px; padding: .7rem .9rem; }
-input { border: 1px solid #aa978b; min-width: 0; }
-.controls input { flex: 1 1 13rem; }
-button { border: 0; background: #863819; color: white; cursor: pointer; font-weight: 650; }
-button:disabled { background: #eee8e2; color: #61544b; cursor: default; }
-ol { list-style: none; padding: 0; margin-bottom: 0; }
-li { display: grid; grid-template-columns: 1fr auto; gap: .7rem; align-items: center; border-top: 1px solid #eee4db; padding: .8rem 0; }
-small { display: block; margin-top: .2rem; color: #69554a; }
-summary { cursor: pointer; font-weight: 650; }
-details form { margin-top: 1rem; }
-#mensagem { min-height: 1.5em; margin-bottom: 0; }
-@media (max-width: 460px) { li { grid-template-columns: 1fr; } }
+body { background: var(--bordo); min-height: 100vh; display: flex; flex-direction: column; }
+.barra { display: flex; align-items: center; gap: 1rem; padding: .7rem 1rem; background: var(--bordo-escuro); color: #fff; flex-wrap: wrap; }
+.barra .relogio { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
+.modos { display: inline-flex; background: rgba(255,255,255,.12); border-radius: 14px; padding: 4px; gap: 4px; }
+.modos button { border: 0; background: transparent; color: #fff; padding: .6rem 1.1rem; border-radius: 11px; font-weight: 700;
+                cursor: pointer; min-height: 48px; font-size: 1rem; }
+.modos button[aria-pressed=true] { background: var(--creme); color: var(--bordo); }
+.palco { flex: 1; display: grid; place-items: center; padding: 1.5rem 1rem 2.5rem; }
+.painel { background: var(--papel); border-radius: 24px; padding: 2rem 1.75rem; width: min(560px, 100%); text-align: center;
+          box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.painel h1 { font-size: clamp(1.6rem, 5vw, 2.1rem); margin: 1rem 0 .4rem; }
+.painel .sub { color: var(--texto-2); margin-bottom: 1.5rem; font-size: 1.05rem; }
+.entrada-codigo { font-size: clamp(1.8rem, 8vw, 2.6rem); font-weight: 800; text-align: center; letter-spacing: .12em;
+                  text-transform: uppercase; min-height: 80px !important; border-width: 3px !important; border-radius: 16px !important; }
+.entrada-codigo::placeholder { color: #cdbcab; }
+.ou { display: flex; align-items: center; gap: .8rem; color: var(--texto-2); margin: 1.3rem 0; }
+.ou::before, .ou::after { content: ""; flex: 1; height: 1px; background: var(--borda); }
+.icone-grande { font-size: 4.5rem; line-height: 1; }
+.resultado.ok .icone-grande { color: var(--ok); }
+.detalhes { display: grid; grid-template-columns: auto 1fr; gap: .45rem 1rem; text-align: left; background: var(--creme);
+            border-radius: 14px; padding: 1rem 1.25rem; margin: 1.2rem 0 0; font-size: 1.1rem; }
+.detalhes dt { color: var(--texto-2); }
+.detalhes dd { margin: 0; font-weight: 700; }
+.progresso { height: 6px; background: var(--creme-2); border-radius: 3px; overflow: hidden; margin-top: 1.5rem; }
+.progresso span { display: block; height: 100%; background: var(--bordo); width: 100%; transform-origin: left; }
+@keyframes esvaziar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.mesa { display: flex; gap: .8rem; align-items: center; justify-content: center; margin-top: 1rem; }
+.mesa input { width: 140px !important; font-size: 1.4rem; text-align: center; font-weight: 700; }
+.dica-modo { color: #fff; opacity: .8; text-align: center; margin-top: 1rem; font-size: .9rem; }
 </style>
-<main>
-  <header><p>Bovinu’s Grill &amp; Beer · Augusta</p><h1>Terminal de atendimento</h1></header>
-  <section aria-labelledby="titulo-visita">
-    <h2 id="titulo-visita">Localizar visita</h2>
-    <form id="busca">
-      <label for="codigo">Código da visita</label>
-      <div class="controls">
-        <input id="codigo" required maxlength="12" pattern="[A-Fa-f0-9]{12}" spellcheck="false"
-               autocomplete="off" placeholder="Ex. 48A26C50B731" title="12 caracteres de 0 a 9 ou A a F">
-        <button>Buscar</button>
+</head>
+<body>
+<div class="barra">
+  <span class="logo"><img src="/img/logo.png" alt="Bovinu's Grill & Beer"></span>
+  <div class="modos" role="group" aria-label="Modo do terminal">
+    <button data-modo="entrada">🚪 Entrada</button>
+    <button data-modo="balanca">⚖️ Balança</button>
+    <button data-modo="caixa">💳 Caixa</button>
+  </div>
+  <span class="relogio" id="relogio"></span>
+</div>
+
+<main class="palco">
+  <!-- tela inicial: leitura do código -->
+  <section class="painel" id="tela-leitura">
+    <span class="logo grande"><img src="/img/logo.png" alt=""></span>
+    <h1 id="titulo-leitura"></h1>
+    <p class="sub" id="sub-leitura"></p>
+    <form id="form-codigo" novalidate>
+      <label for="codigo" class="rotulo" style="display:block;margin-bottom:.4rem">Código da visita</label>
+      <input id="codigo" class="entrada-codigo" type="text" placeholder="BOV-XXXX" autocomplete="off"
+             autocapitalize="characters" spellcheck="false" maxlength="10">
+      <div class="mesa" id="campo-mesa" hidden>
+        <label for="mesa" class="rotulo">Nº da mesa <span class="mudo pequeno">(opcional)</span></label>
+        <input id="mesa" type="number" inputmode="numeric" min="1" max="999" placeholder="—">
       </div>
+      <button class="btn btn-primario btn-enorme btn-bloco" style="margin-top:1.2rem" id="btn-confirmar"></button>
     </form>
-    <p id="mensagem" role="status"></p>
-    <ol id="etapas" hidden>
-      <li><div><strong>Chegada</strong><small></small></div><button data-etapa="check-in">Registrar check-in</button></li>
-      <li><div><strong>Primeira pesagem</strong><small></small></div><button data-etapa="buffet">Concluir buffet</button></li>
-      <li><div><strong>Saída</strong><small></small></div><button data-etapa="check-out">Registrar check-out</button></li>
-    </ol>
+    <div id="bloco-espontaneo">
+      <div class="ou">ou</div>
+      <button class="btn btn-contorno btn-enorme btn-bloco" id="btn-espontaneo" style="flex-direction:column;gap:.2rem">
+        <span>🙋 Sou cliente espontâneo</span>
+        <span style="font-size:.95rem;font-weight:500">(cheguei sem usar o app)</span></button>
+    </div>
   </section>
-  <details>
-    <summary>Gerar visita de teste</summary>
-    <form id="teste">
-      <label for="horario">Horário previsto de chegada</label>
-      <div class="controls"><input id="horario" type="datetime-local" required><button>Gerar código</button></div>
-    </form>
-  </details>
+
+  <!-- confirmação / erro (2 s) -->
+  <section class="painel resultado" id="tela-resultado" hidden aria-live="assertive">
+    <div class="icone-grande" id="res-icone"></div>
+    <h1 id="res-titulo"></h1>
+    <p class="sub" id="res-sub"></p>
+    <dl class="detalhes" id="res-detalhes"></dl>
+    <div class="progresso"><span id="res-barra"></span></div>
+  </section>
+
+  <!-- espontâneo: código gerado -->
+  <section class="painel" id="tela-espontaneo" hidden aria-live="assertive">
+    <div class="icone-grande" style="color:var(--ok)">✓</div>
+    <h1>Bem-vindo! Seu código é:</h1>
+    <div class="codigo-grande" id="esp-codigo" style="font-size:clamp(3rem,15vw,5rem);margin:1rem 0"></div>
+    <p class="alerta alerta-aviso" style="font-size:1.15rem"><strong>Guarde este código para a saída e para avaliar.</strong><br>
+      Tire uma foto ou anote.</p>
+    <button class="btn btn-primario btn-enorme btn-bloco" id="esp-pronto">Pronto</button>
+    <p class="mudo pequeno" style="margin-top:.8rem">Volta ao início em <span id="esp-tempo">20</span> s</p>
+  </section>
 </main>
+
+<script src="/comum.js"></script>
 <script>
-const busca = document.querySelector('#busca');
-const codigo = document.querySelector('#codigo');
-const teste = document.querySelector('#teste');
-const horario = document.querySelector('#horario');
-const etapas = document.querySelector('#etapas');
-const mensagem = document.querySelector('#mensagem');
-const campos = ['check_in_em', 'buffet_concluido_em', 'check_out_em'];
-const botoes = [...etapas.querySelectorAll('button')];
-const formato = new Intl.DateTimeFormat('pt-BR', {
-  dateStyle: 'short', timeStyle: 'medium', timeZone: 'America/Sao_Paulo'
-});
-let atual = null;
+const MODOS = {
+  entrada: { titulo: 'Bem-vindo à Bovinu\'s!', sub: 'Digite ou aproxime do leitor o código do app.', botao: 'Fazer check-in →', etapa: 'Check-in' },
+  balanca: { titulo: 'Balança', sub: 'Leia ou digite o código para concluir o buffet.', botao: 'Concluir buffet →', etapa: 'Buffet concluído' },
+  caixa: { titulo: 'Caixa · Saída', sub: 'Leia ou digite o código para registrar a saída.', botao: 'Registrar saída →', etapa: 'Check-out' },
+};
+const TITULOS_OK = { 'check-in': 'Check-in realizado!', buffet: 'Buffet concluído!', 'check-out': 'Saída registrada!' };
+const TITULOS_REP = { 'check-in': 'Check-in já registrado', buffet: 'Buffet já registrado', 'check-out': 'Saída já registrada' };
+const ETAPAS = { 'check-in': 'Check-in (chegada)', buffet: 'Buffet concluído', 'check-out': 'Check-out (saída)' };
 
-function mostrar(jornada) {
-  atual = jornada;
-  etapas.hidden = !jornada;
-  botoes.forEach((botao, indice) => {
-    const data = jornada?.[campos[indice]];
-    botao.disabled = !jornada || !!data || (indice > 0 && !jornada[campos[indice - 1]]);
-    botao.closest('li').querySelector('small').textContent = data
-      ? formato.format(new Date(data))
-      : 'Aguardando registro';
-  });
+const parametro = new URLSearchParams(location.search).get('modo');
+let modo = MODOS[parametro] ? parametro : (localStorage.getItem('bovinus_modo') || 'entrada');
+if (!MODOS[modo]) modo = 'entrada';
+let ocupado = false;
+let timerVolta = null;
+const campo = document.getElementById('codigo');
+const mesa = document.getElementById('mesa');
+
+function tela(nome) {
+  ['leitura', 'resultado', 'espontaneo'].forEach(t => document.getElementById('tela-' + t).hidden = t !== nome);
 }
 
-async function api(rota, dados) {
-  const resposta = await fetch(rota, dados === undefined ? {} : {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados)
-  });
-  const resultado = await resposta.json();
-  if (!resposta.ok) throw new Error(resultado.erro);
-  return resultado;
+function aplicarModo(novo) {
+  modo = novo;
+  localStorage.setItem('bovinus_modo', modo);
+  history.replaceState(null, '', '?modo=' + modo);
+  document.querySelectorAll('.modos button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modo === modo)));
+  const m = MODOS[modo];
+  document.getElementById('titulo-leitura').textContent = m.titulo;
+  document.getElementById('sub-leitura').textContent = m.sub;
+  document.getElementById('btn-confirmar').textContent = m.botao;
+  document.getElementById('bloco-espontaneo').hidden = modo !== 'entrada';
+  document.getElementById('campo-mesa').hidden = modo !== 'caixa';
+  document.title = `Terminal · ${m.titulo} · Bovinu's Connect`;
+  voltarInicio();
+}
+document.querySelectorAll('.modos button').forEach(b => b.onclick = () => aplicarModo(b.dataset.modo));
+
+function voltarInicio() {
+  clearTimeout(timerVolta); clearInterval(timerVolta);
+  ocupado = false;
+  campo.value = ''; mesa.value = '';
+  tela('leitura');
+  campo.focus();
 }
 
-async function executar(acao, sucesso) {
-  const controles = [...document.querySelectorAll('form input, form button, #etapas button')];
-  controles.forEach(controle => controle.disabled = true);
-  mensagem.textContent = 'Processando…';
+function mostrarResultado(tipo, icone, titulo, sub, detalhes, duracao = 2000) {
+  const painel = document.getElementById('tela-resultado');
+  painel.className = 'painel resultado ' + tipo;
+  painel.style.borderTop = `10px solid var(--${tipo === 'ok' ? 'ok' : tipo === 'aviso' ? 'ambar' : 'erro'})`;
+  document.getElementById('res-icone').textContent = icone;
+  document.getElementById('res-icone').style.color = `var(--${tipo === 'ok' ? 'ok' : tipo === 'aviso' ? 'aviso' : 'erro'})`;
+  document.getElementById('res-titulo').textContent = titulo;
+  document.getElementById('res-sub').textContent = sub;
+  const dl = document.getElementById('res-detalhes');
+  dl.innerHTML = detalhes.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+  dl.hidden = !detalhes.length;
+  const barra = document.getElementById('res-barra');
+  barra.style.animation = 'none'; void barra.offsetWidth;
+  barra.style.animation = `esvaziar ${duracao}ms linear forwards`;
+  tela('resultado');
+  timerVolta = setTimeout(voltarInicio, duracao);
+}
+
+async function registrar() {
+  if (ocupado) return;
+  const codigo = normalizarCodigo(campo.value);
+  if (!codigo) {
+    campo.focus();
+    return mostrarResultado('erro', '✕', 'Código inválido', 'Use o formato BOV-XXXX.', [], 2500);
+  }
+  ocupado = true;
   try {
-    const jornada = await acao();
-    mostrar(jornada);
-    codigo.value = jornada.codigo_visita;
-    mensagem.textContent = sucesso;
-  } catch (erro) {
-    mensagem.textContent = erro.message;
-  } finally {
-    controles.filter(controle => !etapas.contains(controle)).forEach(controle => controle.disabled = false);
-    mostrar(atual);
+    const r = await api(`/api/jornadas/${codigo}/proxima`, { dados: { modo, mesa: modo === 'caixa' ? mesa.value : undefined } });
+    const detalhes = [['Visita', r.visita.codigo], ['Etapa', ETAPAS[r.etapa]], ['Horário', fmt.hora(r.horario)]];
+    if (r.etapa === 'check-out' && r.visita.mesa) detalhes.push(['Mesa', String(r.visita.mesa)]);
+    if (r.repetido) mostrarResultado('aviso', '!', TITULOS_REP[r.etapa], 'Nada foi alterado.', detalhes);
+    else mostrarResultado('ok', '✓', TITULOS_OK[r.etapa], r.mensagem, detalhes);
+  } catch (e) {
+    mostrarResultado('erro', '✕', e.status === 404 ? 'Código não encontrado' : 'Não foi possível registrar', e.message, [['Código', codigo]], 3000);
   }
 }
 
-codigo.addEventListener('input', () => {
-  mostrar(null);
-  mensagem.textContent = '';
+document.getElementById('form-codigo').addEventListener('submit', e => { e.preventDefault(); registrar(); });
+// Leitor de QR/código de barras digita e envia Enter; ao completar BOV-XXXX também envia sozinho.
+// No caixa não envia sozinho, para dar tempo de digitar a mesa (o leitor envia Enter).
+campo.addEventListener('input', () => {
+  if (modo === 'caixa') return;
+  const limpo = campo.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+  if (normalizarCodigo(campo.value) && (limpo.startsWith('BOV') ? limpo.length === 7 : limpo.length === 4)) registrar();
 });
-busca.addEventListener('submit', evento => {
-  evento.preventDefault();
-  mostrar(null);
-  executar(() => api('/api/jornadas/' + codigo.value.toUpperCase()), 'Visita localizada.');
-});
-teste.addEventListener('submit', evento => {
-  evento.preventDefault();
-  executar(() => api('/api/intencoes', {horario_previsto: new Date(horario.value).toISOString()}),
-    'Visita de teste criada. Use o código acima.');
-});
-botoes.forEach(botao => botao.addEventListener('click', () => {
-  executar(() => api('/api/jornadas/' + atual.codigo_visita + '/' + botao.dataset.etapa, {}),
-    'Etapa registrada.');
-}));
+
+document.getElementById('btn-espontaneo').onclick = async () => {
+  if (ocupado) return;
+  ocupado = true;
+  try {
+    const v = await api('/api/visitas', { dados: {} });
+    document.getElementById('esp-codigo').textContent = v.codigo;
+    tela('espontaneo');
+    let resta = 20;
+    document.getElementById('esp-tempo').textContent = resta;
+    timerVolta = setInterval(() => {
+      resta -= 1;
+      document.getElementById('esp-tempo').textContent = resta;
+      if (resta <= 0) voltarInicio();
+    }, 1000);
+  } catch (e) {
+    mostrarResultado('erro', '✕', 'Não foi possível abrir a visita', e.message, [], 3000);
+  }
+};
+document.getElementById('esp-pronto').onclick = voltarInicio;
+
+function relogio() { document.getElementById('relogio').textContent = fmt.horaSeg(new Date().toISOString()); }
+setInterval(relogio, 1000); relogio();
+document.addEventListener('click', e => { if (!e.target.closest('input, button') && !document.getElementById('tela-leitura').hidden) campo.focus(); });
+
+aplicarModo(modo);
 </script>
+</body>
 </html>

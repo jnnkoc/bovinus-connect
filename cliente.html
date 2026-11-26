@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#7d1d1f">
+<title>Bovinu's Connect · Planeje seu almoço</title>
+<link rel="icon" href="/img/logo.png">
+<link rel="stylesheet" href="/estilo.css">
+<style>
+.hero { background: var(--bordo); color: #fff; border-radius: 18px; padding: 1.5rem 1.25rem; text-align: center; }
+.hero h1 { font-size: 1.6rem; margin-top: .8rem; }
+.hero p { opacity: .9; }
+.hero .btn-contorno { background: transparent; color: #fff; border-color: rgba(255,255,255,.7); }
+.hero .btn-contorno:hover { background: rgba(255,255,255,.12); }
+.prato { display: flex; gap: .8rem; align-items: center; padding: .65rem 0; border-top: 1px solid var(--borda); }
+.prato:first-of-type { border-top: 0; }
+.prato .info { min-width: 0; flex: 1; }
+.prato .nome { font-weight: 650; }
+.prato .desc { font-size: .85rem; color: var(--texto-2); }
+.grupo-titulo { display: flex; align-items: center; gap: .5rem; margin: 1rem 0 .2rem; font-weight: 700; color: var(--bordo); }
+.etapa-form { border-left: 4px solid var(--ambar); padding-left: .9rem; }
+.etapa-form > .rotulo { display: block; margin-bottom: .5rem; font-size: 1.05rem; }
+details.categoria { border: 1.5px solid var(--borda); border-radius: 12px; background: #fff; margin-bottom: .6rem; }
+details.categoria summary { list-style: none; display: flex; align-items: center; gap: .7rem; padding: .6rem .8rem; cursor: pointer; font-weight: 650; }
+details.categoria summary::-webkit-details-marker { display: none; }
+details.categoria summary::after { content: "▾"; margin-left: auto; color: var(--texto-2); transition: transform .15s; }
+details.categoria[open] summary::after { transform: rotate(180deg); }
+details.categoria .opcoes { padding: 0 .8rem .6rem; }
+details.categoria .check { padding: .55rem 0; border-top: 1px solid var(--borda); }
+details.categoria .check.desativado { opacity: .45; }
+.contador { font-weight: 700; color: var(--bordo); }
+.passo-pessoas { display: flex; align-items: center; gap: 1rem; }
+.passo-pessoas button { width: 52px; height: 52px; border-radius: 50%; font-size: 1.5rem; padding: 0; min-height: 0; }
+.passo-pessoas output { font-size: 1.8rem; font-weight: 750; min-width: 2ch; text-align: center; }
+.status-linha { list-style: none; padding: 0; margin: 1rem 0; }
+.status-linha li { display: flex; gap: .9rem; align-items: flex-start; position: relative; padding-bottom: 1.3rem; }
+.status-linha li:last-child { padding-bottom: 0; }
+.status-linha li::before { content: ""; position: absolute; left: 17px; top: 36px; bottom: 0; width: 3px; background: var(--borda); }
+.status-linha li:last-child::before { display: none; }
+.status-linha .bola { width: 37px; height: 37px; border-radius: 50%; display: grid; place-items: center; flex: none;
+                      background: var(--creme-2); color: var(--texto-2); font-weight: 800; border: 3px solid var(--borda); }
+.status-linha li.feito .bola { background: var(--ok); border-color: var(--ok); color: #fff; }
+.status-linha li.feito::before { background: var(--ok); }
+.status-linha li.atual .bola { background: var(--ambar); border-color: var(--ambar); color: var(--texto); }
+.status-linha li.atual strong { color: var(--bordo); }
+.fidelidade { display: flex; gap: .8rem; align-items: center; background: var(--ambar-claro); border-radius: 12px; padding: .8rem 1rem; }
+.fidelidade .num { font-size: 2rem; font-weight: 800; color: var(--bordo); }
+</style>
+</head>
+<body>
+<header class="topo">
+  <button class="voltar" id="voltar" aria-label="Voltar ao início" hidden>←</button>
+  <span class="logo"><img src="/img/logo.png" alt="Bovinu's Grill & Beer"></span>
+  <div class="titulo"><strong>Bovinu's Connect</strong><span>Almoço self-service · Unidade Augusta</span></div>
+</header>
+
+<main class="conteudo">
+  <!-- INÍCIO -->
+  <section id="tela-inicio" class="pilha">
+    <div class="hero">
+      <span class="logo grande"><img src="/img/logo.png" alt=""></span>
+      <h1>Bem-vindo ao Bovinu's Connect</h1>
+      <p>Planeje sua visita, escolha o que deseja encontrar no buffet e acompanhe sua visita.</p>
+      <div class="pilha">
+        <a class="btn btn-ambar btn-grande btn-bloco" href="#planejar">Planejar visita →</a>
+        <a class="btn btn-contorno btn-bloco" href="#visita">Minha visita</a>
+        <a class="btn btn-contorno btn-bloco" href="/avaliar">Avaliar minha visita</a>
+      </div>
+    </div>
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>Cardápio de hoje</h2><span class="mudo pequeno" id="cardapio-data"></span></div>
+      <div id="cardapio-hoje"><p class="mudo">Carregando…</p></div>
+    </div>
+  </section>
+
+  <!-- PLANEJAR -->
+  <section id="tela-planejar" class="pilha" hidden>
+    <h1>Planeje sua visita</h1>
+    <p class="mudo">Escolha o horário e até 3 pratos de interesse. Isso ajuda a casa a preparar o buffet para você.</p>
+    <form id="form-planejar" class="cartao pilha" novalidate>
+      <div class="etapa-form">
+        <span class="rotulo">1. Quando você vem?</span>
+        <div class="grade" style="grid-template-columns: 1fr 1fr">
+          <div class="campo"><label for="dia">Dia</label><select id="dia"></select></div>
+          <div class="campo"><label for="horario">Horário de chegada</label><select id="horario"></select></div>
+        </div>
+      </div>
+
+      <div class="etapa-form">
+        <span class="rotulo">2. Pratos de interesse <span class="mudo pequeno">(opcional)</span></span>
+        <p class="pequeno">Escolhidos: <span class="contador" id="contador">0 de 3</span></p>
+        <div id="categorias"></div>
+      </div>
+
+      <div class="etapa-form">
+        <span class="rotulo">3. Quantas pessoas?</span>
+        <div class="passo-pessoas">
+          <button type="button" class="btn btn-contorno" id="menos" aria-label="Menos uma pessoa">−</button>
+          <output id="pessoas" aria-live="polite">2</output>
+          <button type="button" class="btn btn-contorno" id="mais" aria-label="Mais uma pessoa">+</button>
+        </div>
+      </div>
+
+      <div class="etapa-form pilha">
+        <span class="rotulo">4. Seus dados</span>
+        <div class="campo"><label for="nome">Nome</label><input id="nome" type="text" autocomplete="name" maxlength="80" required></div>
+        <div class="campo"><label for="celular">Celular com DDD</label>
+          <input id="celular" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(11) 91234-5678" maxlength="15" required>
+          <span class="ajuda">Usado só para contar suas visitas. Não enviamos mensagens.</span></div>
+        <label class="check"><input type="checkbox" id="lgpd">
+          <span class="pequeno">Autorizo a Bovinu's a usar meu nome e celular para registrar esta visita e contar minhas visitas,
+          conforme a LGPD. Posso pedir a exclusão dos meus dados a qualquer momento.</span></label>
+      </div>
+      <p id="erro-planejar" class="alerta alerta-erro" role="alert" hidden></p>
+      <button class="btn btn-primario btn-grande btn-bloco" id="confirmar">Confirmar visita →</button>
+    </form>
+  </section>
+
+  <!-- CÓDIGO -->
+  <section id="tela-codigo" class="pilha centro" hidden>
+    <div class="cartao pilha">
+      <p class="selo selo-ok" style="margin: 0 auto">✓ Visita planejada</p>
+      <h1>Seu código da visita</h1>
+      <div class="codigo-grande" id="codigo-gerado" aria-live="polite"></div>
+      <p><strong>Mostre este código na entrada.</strong><br><span class="mudo pequeno">Guarde também para a saída e para avaliar.</span></p>
+      <div id="resumo-visita" class="alerta alerta-info" style="text-align:left"></div>
+      <button class="btn btn-contorno btn-bloco" id="copiar">Copiar código</button>
+      <button class="btn btn-primario btn-bloco" id="acompanhar">Acompanhar minha visita</button>
+      <a class="btn btn-fantasma" href="#inicio">Voltar ao início</a>
+    </div>
+  </section>
+
+  <!-- MINHA VISITA -->
+  <section id="tela-visita" class="pilha" hidden>
+    <h1>Minha visita</h1>
+    <form id="form-visita" class="cartao" novalidate>
+      <div class="campo"><label for="codigo-busca">Código da visita</label>
+        <div class="linha"><input id="codigo-busca" type="text" placeholder="BOV-XXXX" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" style="flex:1; text-transform:uppercase; font-weight:700; letter-spacing:.05em">
+          <button class="btn btn-primario">Ver status</button></div></div>
+    </form>
+    <p id="erro-visita" class="alerta alerta-erro" role="alert" hidden></p>
+    <div id="painel-visita" class="cartao" hidden>
+      <div class="cartao-cabeca"><h2 id="visita-codigo"></h2><span class="selo" id="visita-origem"></span></div>
+      <ol class="status-linha" id="status-linha"></ol>
+      <p class="mudo pequeno" id="visita-detalhe"></p>
+      <div class="fidelidade" id="fidelidade" hidden><span class="num" id="fid-num"></span><span id="fid-texto"></span></div>
+      <a class="btn btn-primario btn-bloco" id="btn-avaliar" hidden style="margin-top:1rem">Avaliar minha visita →</a>
+      <p class="alerta alerta-ok" id="ja-avaliada" hidden style="margin-top:1rem">Obrigado pela sua avaliação!</p>
+      <p class="mudo pequeno centro" style="margin-top:1rem">Atualiza sozinho a cada 10 segundos.</p>
+    </div>
+  </section>
+</main>
+
+<script src="/comum.js"></script>
+<script>
+const MAX_PRATOS = 3;
+const telas = ['inicio', 'planejar', 'codigo', 'visita'];
+let cardapioPlanejar = [];
+let pessoas = 2;
+let ultimaIntencao = null;
+let timerVisita = null;
+
+// ---------- navegação por hash ----------
+function mostrarTela() {
+  let alvo = location.hash.slice(1) || 'inicio';
+  if (!telas.includes(alvo) || (alvo === 'codigo' && !ultimaIntencao)) alvo = 'inicio';
+  telas.forEach(t => document.getElementById('tela-' + t).hidden = t !== alvo);
+  document.getElementById('voltar').hidden = alvo === 'inicio';
+  clearInterval(timerVisita);
+  if (alvo === 'planejar') prepararPlanejar();
+  if (alvo === 'visita') prepararVisita();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', mostrarTela);
+document.getElementById('voltar').onclick = () => { location.hash = 'inicio'; };
+
+// ---------- início: cardápio do dia ----------
+function listaPratos(pratos) {
+  if (!pratos.length) return '<p class="mudo">O cardápio deste dia ainda não foi publicado.</p>';
+  return Object.entries(CATEGORIAS).map(([cat, info]) => {
+    const itens = pratos.filter(p => p.categoria === cat);
+    if (!itens.length) return '';
+    return `<div class="grupo-titulo">${info.nome}</div>` + itens.map(p => `
+      <div class="prato">
+        <span class="icone-cat cat-${cat}" aria-hidden="true">${info.icone}</span>
+        <div class="info"><div class="nome">${esc(p.nome)}</div>
+          ${p.descricao ? `<div class="desc">${esc(p.descricao)}</div>` : ''}</div>
+        ${p.destaque ? '<span class="selo selo-ambar">★ Destaque</span>' : ''}
+        ${p.vegetariano ? '<span class="selo selo-ok">Veg</span>' : ''}
+      </div>`).join('');
+  }).join('');
+}
+
+async function carregarInicio() {
+  const hoje = hojeISO();
+  document.getElementById('cardapio-data').textContent = fmt.dataLonga(hoje);
+  try {
+    const { pratos } = await api('/api/cardapio?data=' + hoje);
+    document.getElementById('cardapio-hoje').innerHTML = listaPratos(pratos);
+  } catch (e) {
+    document.getElementById('cardapio-hoje').innerHTML = `<p class="alerta alerta-erro">${esc(e.message)}</p>`;
+  }
+}
+
+// ---------- planejar ----------
+const selDia = document.getElementById('dia');
+const selHorario = document.getElementById('horario');
+
+function horariosDoDia(dia) {
+  const lista = [];
+  const agora = Date.now();
+  for (let m = 11 * 60; m <= 14 * 60 + 45; m += 15) {
+    const hh = String(Math.floor(m / 60)).padStart(2, '0'), mm = String(m % 60).padStart(2, '0');
+    const iso = `${dia}T${hh}:${mm}:00-03:00`;
+    if (new Date(iso).getTime() > agora) lista.push({ iso, texto: `${hh}:${mm}` });
+  }
+  return lista;
+}
+
+function prepararPlanejar() {
+  if (selDia.options.length) return;
+  const hoje = hojeISO();
+  for (let i = 0; i < 7; i++) {
+    const dia = somarDias(hoje, i);
+    if (!horariosDoDia(dia).length) continue;
+    const rotulo = i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : fmt.dataLonga(dia).split(',')[0];
+    selDia.add(new Option(`${rotulo} (${fmt.diaMes(dia)})`, dia));
+  }
+  selDia.onchange = trocarDia;
+  trocarDia();
+}
+
+async function trocarDia() {
+  const dia = selDia.value;
+  selHorario.innerHTML = '';
+  horariosDoDia(dia).forEach(h => selHorario.add(new Option(h.texto, h.iso)));
+  const padrao = [...selHorario.options].find(o => o.text === '12:30');
+  if (padrao) padrao.selected = true;
+  const caixa = document.getElementById('categorias');
+  caixa.innerHTML = '<p class="mudo">Carregando pratos…</p>';
+  try {
+    cardapioPlanejar = (await api('/api/cardapio?data=' + dia)).pratos;
+  } catch { cardapioPlanejar = []; }
+  if (!cardapioPlanejar.length) {
+    caixa.innerHTML = '<p class="alerta alerta-info pequeno">O cardápio deste dia ainda não foi publicado. Você pode planejar a visita mesmo assim.</p>';
+  } else {
+    caixa.innerHTML = Object.entries(CATEGORIAS).map(([cat, info]) => {
+      const itens = cardapioPlanejar.filter(p => p.categoria === cat);
+      if (!itens.length) return '';
+      return `<details class="categoria">
+        <summary><span class="icone-cat cat-${cat}" style="width:40px;height:40px;font-size:1.3rem" aria-hidden="true">${info.icone}</span>
+          ${info.nome} <span class="selo" data-qtd="${cat}" hidden></span></summary>
+        <div class="opcoes">${itens.map(p => `
+          <label class="check"><input type="checkbox" name="prato" value="${p.id}" data-cat="${cat}">
+            <span><strong>${esc(p.nome)}</strong>${p.destaque ? ' <span class="selo selo-ambar">★</span>' : ''}
+            ${p.vegetariano ? ' <span class="selo selo-ok">Veg</span>' : ''}
+            ${p.descricao ? `<br><span class="mudo pequeno">${esc(p.descricao)}</span>` : ''}</span></label>`).join('')}
+        </div></details>`;
+    }).join('');
+    caixa.querySelectorAll('input[name=prato]').forEach(c => c.onchange = atualizarContador);
+  }
+  atualizarContador();
+}
+
+function atualizarContador() {
+  const caixas = [...document.querySelectorAll('input[name=prato]')];
+  const marcadas = caixas.filter(c => c.checked);
+  document.getElementById('contador').textContent = `${marcadas.length} de ${MAX_PRATOS}`;
+  caixas.forEach(c => {
+    c.disabled = !c.checked && marcadas.length >= MAX_PRATOS;
+    c.closest('.check').classList.toggle('desativado', c.disabled);
+  });
+  document.querySelectorAll('[data-qtd]').forEach(s => {
+    const n = marcadas.filter(c => c.dataset.cat === s.dataset.qtd).length;
+    s.hidden = !n;
+    s.textContent = `${n} escolhido${n > 1 ? 's' : ''}`;
+    s.className = 'selo selo-bordo';
+  });
+}
+
+function atualizarPessoas(delta) {
+  pessoas = Math.min(20, Math.max(1, pessoas + delta));
+  document.getElementById('pessoas').textContent = pessoas;
+}
+document.getElementById('menos').onclick = () => atualizarPessoas(-1);
+document.getElementById('mais').onclick = () => atualizarPessoas(1);
+
+const celular = document.getElementById('celular');
+celular.addEventListener('input', () => {
+  const d = celular.value.replace(/\D/g, '').slice(0, 11);
+  celular.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`
+    : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d;
+});
+
+document.getElementById('form-planejar').addEventListener('submit', async evento => {
+  evento.preventDefault();
+  const erro = document.getElementById('erro-planejar');
+  const botao = document.getElementById('confirmar');
+  erro.hidden = true;
+  const dados = {
+    horario_previsto: selHorario.value,
+    pessoas,
+    pratos: [...document.querySelectorAll('input[name=prato]:checked')].map(c => Number(c.value)),
+    nome: document.getElementById('nome').value.trim(),
+    celular: celular.value,
+    aceite_lgpd: document.getElementById('lgpd').checked,
+  };
+  const problema = !dados.horario_previsto ? 'Escolha um horário.'
+    : dados.nome.length < 2 ? 'Informe seu nome.'
+    : ![10, 11].includes(dados.celular.replace(/\D/g, '').length) ? 'Informe o celular com DDD.'
+    : !dados.aceite_lgpd ? 'Para continuar, marque a autorização de uso dos dados.' : null;
+  if (problema) { erro.textContent = problema; erro.hidden = false; return; }
+  botao.disabled = true;
+  try {
+    ultimaIntencao = await api('/api/intencoes', { dados });
+    localStorage.setItem('bovinus_codigo', ultimaIntencao.codigo);
+    mostrarCodigo();
+    location.hash = 'codigo';
+  } catch (e) {
+    erro.textContent = e.message; erro.hidden = false;
+  } finally { botao.disabled = false; }
+});
+
+// ---------- código ----------
+function mostrarCodigo() {
+  const v = ultimaIntencao;
+  document.getElementById('codigo-gerado').textContent = v.codigo;
+  const dia = v.horario_previsto.slice(0, 10);
+  document.getElementById('resumo-visita').innerHTML =
+    `<strong>${fmt.dataLonga(selDia.value)}, às ${fmt.hora(v.horario_previsto)}</strong> · ${v.pessoas} pessoa${v.pessoas > 1 ? 's' : ''}` +
+    (v.pratos.length ? `<br><span class="pequeno">Interesse: ${v.pratos.map(esc).join(', ')}</span>` : '');
+}
+document.getElementById('copiar').onclick = async () => {
+  try { await navigator.clipboard.writeText(ultimaIntencao.codigo); avisar('Código copiado.', 'ok'); }
+  catch { avisar('Anote o código: ' + ultimaIntencao.codigo); }
+};
+document.getElementById('acompanhar').onclick = () => { location.hash = 'visita'; };
+
+// ---------- minha visita ----------
+const campoBusca = document.getElementById('codigo-busca');
+
+function prepararVisita() {
+  const salvo = localStorage.getItem('bovinus_codigo');
+  if (!campoBusca.value && salvo) campoBusca.value = salvo;
+  if (campoBusca.value) buscarVisita();
+}
+
+document.getElementById('form-visita').addEventListener('submit', e => { e.preventDefault(); buscarVisita(); });
+
+async function buscarVisita(silencioso = false) {
+  const erro = document.getElementById('erro-visita');
+  const codigo = normalizarCodigo(campoBusca.value);
+  if (!codigo) { erro.textContent = 'Digite o código no formato BOV-XXXX.'; erro.hidden = false; return; }
+  try {
+    const v = await api('/api/jornadas/' + codigo);
+    erro.hidden = true;
+    campoBusca.value = v.codigo;
+    localStorage.setItem('bovinus_codigo', v.codigo);
+    desenharVisita(v);
+    clearInterval(timerVisita);
+    if (!(v.status === 'encerrada' && v.avaliada)) timerVisita = setInterval(() => buscarVisita(true), 10000);
+  } catch (e) {
+    if (silencioso) return;
+    erro.textContent = e.message; erro.hidden = false;
+    document.getElementById('painel-visita').hidden = true;
+  }
+}
+
+function desenharVisita(v) {
+  document.getElementById('painel-visita').hidden = false;
+  document.getElementById('visita-codigo').textContent = v.codigo;
+  document.getElementById('visita-origem').textContent = v.origem === 'planejado' ? 'Planejada no app' : 'Chegada sem app';
+  const ordem = ['aguardando', 'em_andamento', 'encerrada'];
+  const atual = ordem.indexOf(v.status);
+  const etapas = [
+    ['Aguardando chegada', v.horario_previsto ? `Previsto para ${fmt.dataCurta(v.horario_previsto)} às ${fmt.hora(v.horario_previsto)}` : ''],
+    ['Visita em andamento', v.check_in_em ? `Chegada às ${fmt.hora(v.check_in_em)}` + (v.buffet_concluido_em ? ` · buffet às ${fmt.hora(v.buffet_concluido_em)}` : '') : 'O check-in é feito no totem da entrada'],
+    ['Visita encerrada', v.check_out_em ? (v.saida_estimada ? 'Encerrada automaticamente' : `Saída às ${fmt.hora(v.check_out_em)}`) : 'A saída é registrada no caixa'],
+  ];
+  document.getElementById('status-linha').innerHTML = etapas.map(([titulo, detalhe], i) => {
+    const classe = i < atual || (i === atual && i === 2) ? 'feito' : i === atual ? 'atual' : '';
+    return `<li class="${classe}"><span class="bola">${classe === 'feito' ? '✓' : i + 1}</span>
+      <div><strong>${titulo}</strong><br><span class="mudo pequeno">${esc(detalhe)}</span></div></li>`;
+  }).join('');
+  document.getElementById('visita-detalhe').textContent = v.pratos.length ? 'Pratos de interesse: ' + v.pratos.join(', ') : '';
+  const fid = document.getElementById('fidelidade');
+  fid.hidden = v.visitas_cliente === null;
+  if (v.visitas_cliente !== null) {
+    document.getElementById('fid-num').textContent = v.visitas_cliente;
+    document.getElementById('fid-texto').textContent = v.visitas_cliente === 0
+      ? 'Esta será sua primeira visita registrada. Seja bem-vindo!'
+      : `Você já veio ${v.visitas_cliente} ${v.visitas_cliente === 1 ? 'vez' : 'vezes'} à Bovinu's. Obrigado pela preferência!`;
+  }
+  const btn = document.getElementById('btn-avaliar');
+  btn.hidden = !(v.status === 'encerrada' && !v.avaliada);
+  btn.href = '/avaliar?codigo=' + encodeURIComponent(v.codigo);
+  document.getElementById('ja-avaliada').hidden = !v.avaliada;
+}
+
+carregarInicio();
+mostrarTela();
+</script>
+</body>
+</html>

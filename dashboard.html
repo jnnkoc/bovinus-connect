@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Bovinu's Connect</title>
+<link rel="icon" href="/img/logo.png">
+<link rel="stylesheet" href="/estilo.css">
+<style>
+:root { --s-planejado: #7d1d1f; --s-espontaneo: #d4952b; --s-previsto: #2b1b16; --grade: #ece2d4; }
+.duas { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; }
+.metade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+@media (max-width: 1000px) { .duas, .metade, .tres { grid-template-columns: 1fr; } }
+.kpi .valor small { font-size: 1rem; font-weight: 600; color: var(--texto-2); }
+.legenda { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .82rem; color: var(--texto-2); margin-bottom: .4rem; }
+.legenda span { display: inline-flex; align-items: center; gap: .35rem; }
+.legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legenda i.linha { height: 0; border-top: 2px solid; border-radius: 0; width: 16px; position: relative; }
+.legenda i.linha::after { content: ""; position: absolute; left: 5px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: inherit; }
+.grafico { position: relative; width: 100%; }
+.grafico svg { display: block; width: 100%; overflow: visible; }
+.grafico text { font: 11px var(--fonte); fill: #7a645a; }
+.dica { position: absolute; pointer-events: none; background: var(--texto); color: #fff; border-radius: 8px; padding: .45rem .65rem;
+        font-size: .8rem; line-height: 1.35; white-space: nowrap; z-index: 5; transform: translate(-50%, calc(-100% - 10px)); }
+.barras-h { display: grid; gap: .55rem; }
+.barra-h { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: .6rem; align-items: center; font-size: .88rem; }
+.barra-h .trilho { background: var(--creme-2); border-radius: 4px; height: 14px; overflow: hidden; }
+.barra-h .preench { height: 100%; border-radius: 0 4px 4px 0; background: var(--s-planejado); }
+.barra-h .val { font-variant-numeric: tabular-nums; font-weight: 650; min-width: 3.5ch; text-align: right; }
+.barra-h .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proxima { display: flex; justify-content: space-between; align-items: center; padding: .7rem 0; border-top: 1px solid var(--borda); }
+.proxima:first-child { border-top: 0; }
+.proxima .hora { font-weight: 700; font-size: 1.05rem; }
+.proxima .pessoas { font-size: 1.4rem; font-weight: 800; color: var(--bordo); font-variant-numeric: tabular-nums; }
+.insights { list-style: none; padding: 0; margin: 0; display: grid; gap: .55rem; }
+.insights li { display: flex; gap: .6rem; align-items: flex-start; }
+.insights li::before { content: "✓"; color: var(--ok); font-weight: 800; }
+.comentario { border-top: 1px solid var(--borda); padding: .6rem 0; font-size: .9rem; }
+.comentario:first-child { border-top: 0; }
+.nps-barra { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; margin: .5rem 0; }
+.nps-barra div { min-width: 2px; }
+.periodo button[aria-pressed=true] { background: var(--creme); color: var(--bordo); }
+.periodo button { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.5); border-radius: 9px; padding: .35rem .7rem;
+                  font-weight: 650; cursor: pointer; min-height: 38px; }
+.atualizado { font-size: .8rem; opacity: .85; }
+#tv { position: fixed; inset: 0; background: var(--bordo-escuro); color: #fff; z-index: 50; display: flex; flex-direction: column; padding: 2rem; }
+#tv .numeros { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; align-items: center; text-align: center; }
+#tv .n { font-size: clamp(4rem, 12vw, 10rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+#tv .n.texto { font-size: clamp(2rem, 5vw, 4.5rem); }
+#tv .r { font-size: clamp(1rem, 2vw, 1.6rem); opacity: .85; margin-top: 1rem; }
+@media (max-width: 800px) { #tv .numeros { grid-template-columns: 1fr; } }
+.tabela td.cod { font-weight: 700; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="admin">
+  <nav class="lateral" aria-label="Menu"></nav>
+  <div class="principal">
+    <header class="cabeca">
+      <div><h1>Área gerencial</h1><div class="sub">Jornada do cliente no almoço · Unidade Augusta</div></div>
+      <div class="acoes">
+        <span class="selo selo-simulado" id="selo-simulado" hidden title="Dados gerados por seed.py para demonstração">⚠ Dados simulados</span>
+        <input type="date" id="data" aria-label="Data">
+        <span class="periodo" id="periodo" hidden>
+          <button data-dias="7">7 dias</button> <button data-dias="14">14 dias</button> <button data-dias="30">30 dias</button>
+        </span>
+        <button class="btn btn-ambar" id="btn-tv" style="min-height:40px;padding:.4rem .9rem">📺 Modo TV</button>
+        <span class="atualizado" id="atualizado"></span>
+      </div>
+    </header>
+    <div class="corpo pilha">
+      <div class="abas" role="tablist">
+        <button role="tab" id="aba-hoje" aria-selected="true">Hoje (ao vivo)</button>
+        <button role="tab" id="aba-analise" aria-selected="false">Análise do período</button>
+      </div>
+
+      <!-- ====================== HOJE ====================== -->
+      <section id="painel-hoje" class="pilha" role="tabpanel" aria-labelledby="aba-hoje">
+        <div class="kpis" id="kpis-hoje"></div>
+        <div class="duas">
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Chegadas previstas × reais</h2><span class="mudo pequeno">a cada 15 min</span></div>
+            <div class="legenda">
+              <span><i style="background:var(--s-planejado)"></i>Check-ins planejados</span>
+              <span><i style="background:var(--s-espontaneo)"></i>Check-ins espontâneos</span>
+              <span><i class="linha" style="border-color:var(--s-previsto);background:var(--s-previsto)"></i>Pessoas previstas (intenções)</span>
+            </div>
+            <div class="grafico" id="g-chegadas"></div>
+          </div>
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Próximas chegadas previstas</h2></div>
+            <div id="proximas"></div>
+          </div>
+        </div>
+        <div class="metade">
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Pratos mais desejados</h2><span class="mudo pequeno">nº de intenções que marcaram</span></div>
+            <div class="barras-h" id="pratos"></div>
+          </div>
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Funil dos planejados</h2><span class="mudo pequeno">% sobre as intenções do dia</span></div>
+            <div class="barras-h" id="funil"></div>
+            <h3 style="margin-top:1.3rem">Espontâneos (à parte)</h3>
+            <div class="barras-h" id="funil-esp"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================== ANÁLISE ====================== -->
+      <section id="painel-analise" class="pilha" role="tabpanel" aria-labelledby="aba-analise" hidden>
+        <div class="kpis" id="kpis-analise"></div>
+        <div class="cartao">
+          <div class="cartao-cabeca"><h2>✦ Insights do período</h2><span class="mudo pequeno">gerados por regras sobre os dados</span></div>
+          <ul class="insights" id="insights"></ul>
+        </div>
+        <div class="tres">
+          <div class="cartao"><div class="cartao-cabeca"><h2>Visitas por dia</h2></div>
+            <div class="legenda"><span><i style="background:var(--s-planejado)"></i>Planejados</span><span><i style="background:var(--s-espontaneo)"></i>Espontâneos</span></div>
+            <div class="grafico" id="g-visitas"></div></div>
+          <div class="cartao"><div class="cartao-cabeca"><h2>Conversão da intenção</h2><span class="mudo pequeno">% por dia</span></div>
+            <div class="grafico" id="g-conversao"></div></div>
+          <div class="cartao"><div class="cartao-cabeca"><h2>Permanência média</h2><span class="mudo pequeno">minutos por dia</span></div>
+            <div class="grafico" id="g-permanencia"></div></div>
+        </div>
+        <div class="tres">
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Satisfação</h2><span class="mudo pequeno" id="n-aval"></span></div>
+            <div id="nps-resumo"></div>
+            <h3 style="margin-top:1rem">Notas por tema <span class="mudo pequeno">(média de 1 a 5)</span></h3>
+            <div class="barras-h" id="temas"></div>
+          </div>
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Comentários recentes</h2></div>
+            <div id="comentarios"></div>
+          </div>
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Recorrência</h2><span class="mudo pequeno">clientes identificados</span></div>
+            <p id="rec-resumo"></p>
+            <div class="barras-h" id="recorrencia"></div>
+            <p class="mudo pequeno" style="margin-top:.8rem">Conta visitas com check-out por celular. Espontâneos não são identificados.</p>
+          </div>
+        </div>
+        <div class="metade">
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Pratos pouco desejados</h2><span class="mudo pequeno">% das intenções nos dias em que foi servido</span></div>
+            <div class="tabela-rolagem"><table class="tabela">
+              <thead><tr><th>Prato</th><th>Categoria</th><th class="num">Dias</th><th class="num">Marcações</th><th class="num">Taxa</th></tr></thead>
+              <tbody id="pouco"></tbody></table></div>
+          </div>
+          <div class="cartao">
+            <div class="cartao-cabeca"><h2>Visitas recentes</h2><a class="btn btn-contorno" id="csv" style="min-height:38px;padding:.3rem .8rem" download>⬇ Exportar CSV</a></div>
+            <div class="tabela-rolagem" style="max-height:420px;overflow-y:auto"><table class="tabela">
+              <thead><tr><th>Código</th><th>Origem</th><th>Chegada</th><th>Saída</th><th class="num">Tempo</th><th class="num">NPS</th></tr></thead>
+              <tbody id="recentes"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="tv" hidden>
+  <div class="linha"><span class="logo"><img src="/img/logo.png" alt=""></span>
+    <strong style="font-size:1.4rem">Bovinu's Connect · Ao vivo</strong>
+    <span class="atualizado" id="tv-hora" style="margin-left:auto;font-size:1.2rem"></span>
+    <button class="btn btn-contorno" id="tv-sair" style="background:transparent;color:#fff;border-color:#fff">Sair (Esc)</button></div>
+  <div class="numeros">
+    <div><div class="n" id="tv-salao">—</div><div class="r">clientes no salão agora</div></div>
+    <div><div class="n" id="tv-prox">—</div><div class="r">pessoas previstas na próxima meia hora</div></div>
+    <div><div class="n texto" id="tv-prato">—</div><div class="r">prato mais desejado hoje</div></div>
+  </div>
+</div>
+
+<script src="/comum.js"></script>
+<script>
+montarLateral('/dashboard');
+const NS = 'http://www.w3.org/2000/svg';
+const COR = { planejado: '#7d1d1f', espontaneo: '#d4952b', previsto: '#2b1b16', grade: '#ece2d4', ok: '#2f7d4a', neutro: '#b9aa9a', erro: '#b3261e' };
+const campoData = document.getElementById('data');
+let aba = 'hoje';
+let dias = 7;
+let ultimoHoje = null, ultimoAnalise = null;
+
+// ------------------------------------------------------------------ gráficos SVG
+function el(tag, attrs = {}, pai) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (pai) pai.append(e);
+  return e;
+}
+// Máximo do eixo = 4 passos "redondos" (1, 2, 2,5, 5 × 10^n), sempre inteiros.
+function teto(v) {
+  const passo = Math.max(1, v / 4);
+  const p = Math.pow(10, Math.floor(Math.log10(passo)));
+  for (const m of [1, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= passo && Number.isInteger(m * p)) return m * p * 4;
+  return 10 * p * 4;
+}
+function dica(caixa) {
+  let d = caixa.querySelector('.dica');
+  if (!d) { d = document.createElement('div'); d.className = 'dica'; d.hidden = true; caixa.append(d); }
+  return d;
+}
+
+/* Barras empilhadas (séries) + linha opcional, eixo único. */
+function graficoBarras(caixa, { rotulos, series, linha, altura = 260, mostrarRotulo, dicaHtml, sufixo = '' }) {
+  caixa.querySelectorAll('svg').forEach(s => s.remove());
+  const W = Math.max(caixa.clientWidth, 280), H = altura;
+  const m = { t: 12, r: 8, b: 26, l: 34 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const n = rotulos.length;
+  const totais = rotulos.map((_, i) => series.reduce((s, se) => s + (se.valores[i] || 0), 0));
+  const maximo = teto(Math.max(1, ...totais, ...(linha ? linha.valores.filter(v => v !== null) : [])));
+  const y = v => m.t + ih - (v / maximo) * ih;
+  const banda = iw / n;
+  const larg = Math.max(2, Math.min(28, banda * 0.72));
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img' });
+  for (let k = 0; k <= 4; k++) {
+    const v = maximo * k / 4;
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: COR.grade, 'stroke-width': 1 }, svg);
+    el('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, svg).textContent = Math.round(v) + sufixo;
+  }
+  const destaque = el('rect', { y: m.t, height: ih, width: banda, fill: '#000', opacity: 0, rx: 4 }, svg);
+  rotulos.forEach((r, i) => {
+    const cx = m.l + banda * i + banda / 2;
+    let base = 0;
+    series.forEach((se, s) => {
+      const v = se.valores[i] || 0;
+      if (!v) return;
+      const topo = s === series.length - 1 || series.slice(s + 1).every(o => !(o.valores[i] || 0));
+      const y0 = y(base), y1 = y(base + v);
+      const h = Math.max(1, y0 - y1 - (base > 0 ? 2 : 0));
+      const raio = topo ? Math.min(4, larg / 2, h) : 0;
+      const x = cx - larg / 2, yy = y1;
+      // retângulo com cantos arredondados só no topo
+      el('path', { d: `M${x},${yy + h} V${yy + raio} Q${x},${yy} ${x + raio},${yy} H${x + larg - raio} Q${x + larg},${yy} ${x + larg},${yy + raio} V${yy + h} Z`,
+                   fill: se.cor }, svg);
+      base += v;
+    });
+    const rot = mostrarRotulo ? mostrarRotulo(r, i) : r;
+    if (rot) el('text', { x: cx, y: H - 8, 'text-anchor': 'middle' }, svg).textContent = rot;
+  });
+  if (linha) {
+    let caminho = '', aberto = false;
+    linha.valores.forEach((v, i) => {
+      const cx = m.l + banda * i + banda / 2;
+      if (v === null) { aberto = false; return; }
+      caminho += (aberto ? 'L' : 'M') + cx + ',' + y(v);
+      aberto = true;
+    });
+    el('path', { d: caminho, fill: 'none', stroke: linha.cor, 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+    linha.valores.forEach((v, i) => {
+      if (v === null || (!v && linha.ocultarZero)) return;
+      el('circle', { cx: m.l + banda * i + banda / 2, cy: y(v), r: 3.5, fill: linha.cor, stroke: '#fffdf9', 'stroke-width': 2 }, svg);
+    });
+  }
+  const d = dica(caixa);
+  const alvo = el('rect', { x: m.l, y: 0, width: iw, height: H, fill: 'transparent' }, svg);
+  alvo.addEventListener('mousemove', ev => {
+    const caixaSvg = svg.getBoundingClientRect();
+    const px = (ev.clientX - caixaSvg.left) * (W / caixaSvg.width);
+    const i = Math.min(n - 1, Math.max(0, Math.floor((px - m.l) / banda)));
+    destaque.setAttribute('x', m.l + banda * i); destaque.setAttribute('opacity', 0.05);
+    d.innerHTML = dicaHtml(i); d.hidden = false;
+    d.style.left = ((m.l + banda * i + banda / 2) / W * caixaSvg.width) + 'px';
+    d.style.top = (y(Math.max(totais[i], linha ? linha.valores[i] || 0 : 0)) / H * caixaSvg.height) + 'px';
+  });
+  alvo.addEventListener('mouseleave', () => { d.hidden = true; destaque.setAttribute('opacity', 0); });
+  caixa.prepend(svg);
+}
+
+/* Linha simples (uma série), valores nulos quebram a linha. */
+function graficoLinha(caixa, { rotulos, valores, cor, sufixo = '', minimo = 0, maximoFixo, dicaHtml }) {
+  graficoBarras(caixa, {
+    rotulos, series: [], altura: 200, sufixo, dicaHtml,
+    linha: { valores, cor }, mostrarRotulo: (r, i) => rotulos.length > 10 && i % Math.ceil(rotulos.length / 7) ? '' : r,
+  });
+}
+
+function barrasH(caixa, itens, { max, cor, formato = v => fmt.numero(v), vazio = 'Sem dados.' } = {}) {
+  if (!itens.length) { caixa.innerHTML = `<p class="mudo pequeno">${vazio}</p>`; return; }
+  const topo = max ?? Math.max(1, ...itens.map(i => i.valor || 0));
+  caixa.innerHTML = itens.map(i => `
+    <div class="barra-h" title="${esc(i.dica || '')}"><span class="nome">${i.rotulo}</span>
+      <span class="trilho"><span class="preench" style="display:block;width:${Math.max(0, (i.valor || 0) / topo * 100)}%;background:${i.cor || cor || COR.planejado}"></span></span>
+      <span class="val">${i.valor === null ? '—' : formato(i.valor)}</span></div>`).join('');
+}
+
+function kpi(rotulo, valor, detalhe = '') {
+  return `<div class="kpi"><div class="rotulo">${rotulo}</div><div class="valor">${valor}</div><div class="detalhe">${detalhe}</div></div>`;
+}
+function textoNps(v) { return v === null ? '—' : (v > 0 ? '+' : '') + v; }
+
+// ------------------------------------------------------------------ aba Hoje
+async function carregarHoje() {
+  const d = await api('/api/dashboard/hoje?data=' + campoData.value);
+  ultimoHoje = d;
+  const c = d.cartoes;
+  document.getElementById('selo-simulado').hidden = !d.simulado;
+  document.getElementById('kpis-hoje').innerHTML =
+    kpi('Visitas do dia', fmt.numero(c.visitas), `${c.planejados} planejados · ${c.espontaneos} espontâneos`) +
+    kpi('No salão agora', c.no_salao === null ? '—' : fmt.numero(c.no_salao), d.ao_vivo ? 'check-in sem check-out' : 'só para hoje') +
+    kpi('Conversão da intenção', fmt.pct(c.conversao.pct), c.conversao.elegiveis ? `${c.conversao.convertidas} de ${c.conversao.elegiveis} com horário + 30 min vencido` : 'nenhuma intenção vencida ainda') +
+    kpi('Permanência média', fmt.minutos(c.permanencia_media), `até a balança: ${fmt.minutos(c.balanca_media)}`) +
+    kpi('NPS', textoNps(c.nps), c.avaliacoes ? `${c.avaliacoes} avaliações hoje` : 'sem avaliações ainda');
+
+  const s = d.serie;
+  graficoBarras(document.getElementById('g-chegadas'), {
+    rotulos: s.map(f => fmt.hora(f.inicio)),
+    series: [
+      { nome: 'Planejados', cor: COR.planejado, valores: s.map(f => f.planejados) },
+      { nome: 'Espontâneos', cor: COR.espontaneo, valores: s.map(f => f.espontaneos) },
+    ],
+    linha: { cor: COR.previsto, valores: s.map(f => f.previstas), ocultarZero: true },
+    mostrarRotulo: r => r.endsWith(':00') ? r.slice(0, 2) + 'h' : '',
+    dicaHtml: i => `<strong>${fmt.hora(s[i].inicio)}–${fmt.hora(new Date(new Date(s[i].inicio).getTime() + 9e5).toISOString())}</strong><br>
+      Previstas: ${s[i].previstas} pessoas<br>Check-ins: ${s[i].planejados + s[i].espontaneos}
+      (${s[i].planejados} plan. · ${s[i].espontaneos} espont.)`,
+  });
+
+  document.getElementById('proximas').innerHTML = d.proximas.length ? d.proximas.map(p => `
+    <div class="proxima"><div><div class="hora">${fmt.hora(p.inicio)} – ${fmt.hora(p.fim)}</div>
+      <div class="mudo pequeno">${p.intencoes} ${p.intencoes > 1 ? 'intenções' : 'intenção'}</div></div>
+      <div class="pessoas">${p.pessoas} <span class="pequeno mudo">pessoas</span></div></div>`).join('')
+    : `<p class="mudo">${d.ao_vivo || campoData.value > hojeISO() ? 'Nenhuma chegada prevista pela frente.' : 'Disponível só para hoje e dias futuros.'}</p>`;
+
+  barrasH(document.getElementById('pratos'), d.pratos.slice(0, 8).map(p => ({
+    rotulo: `${CATEGORIAS[p.categoria].icone} ${esc(p.nome)}${p.destaque ? ' ★' : ''}`, valor: p.desejos,
+  })), { vazio: 'Sem cardápio cadastrado para este dia.' });
+
+  const base = d.funil_planejados[0].valor;
+  barrasH(document.getElementById('funil'), d.funil_planejados.map(f => ({
+    rotulo: f.etapa, valor: f.valor, dica: base ? `${Math.round(f.valor / base * 100)}% das intenções` : '',
+  })), { max: Math.max(1, base), formato: v => `${v} <span class="mudo pequeno">${base ? Math.round(v / base * 100) + '%' : ''}</span>` });
+  const e = d.espontaneos;
+  barrasH(document.getElementById('funil-esp'), [
+    { rotulo: 'Check-in', valor: e.visitas }, { rotulo: 'Check-out', valor: e.check_out }, { rotulo: 'Avaliação', valor: e.avaliacoes },
+  ], { max: Math.max(1, e.visitas), cor: COR.espontaneo });
+
+  const top = d.pratos.find(p => p.desejos > 0);
+  document.getElementById('tv-salao').textContent = c.no_salao ?? '—';
+  document.getElementById('tv-prox').textContent = d.proxima_meia_hora;
+  document.getElementById('tv-prato').textContent = top ? top.nome : '—';
+  document.getElementById('tv-hora').textContent = fmt.horaSeg(d.atualizado_em);
+  return d;
+}
+
+// ------------------------------------------------------------------ aba Análise
+async function carregarAnalise() {
+  const fim = campoData.value, inicio = somarDias(fim, -(dias - 1));
+  const d = await api(`/api/dashboard/analise?inicio=${inicio}&fim=${fim}`);
+  ultimoAnalise = d;
+  document.getElementById('selo-simulado').hidden = !d.simulado;
+  const r = d.resumo, s = d.satisfacao;
+  document.getElementById('kpis-analise').innerHTML =
+    kpi('Visitas no período', fmt.numero(r.visitas), `${fmt.diaMes(d.inicio)} a ${fmt.diaMes(d.fim)}`) +
+    kpi('Planejados', fmt.pct(r.visitas ? Math.round(r.planejados / r.visitas * 100) : null), `${r.planejados} visitas vieram do app`) +
+    kpi('Conversão da intenção', fmt.pct(r.conversao.pct), `${r.conversao.convertidas} de ${r.conversao.elegiveis} intenções`) +
+    kpi('Permanência média', fmt.minutos(r.permanencia_media), `até a balança: ${fmt.minutos(r.balanca_media)}`) +
+    kpi('NPS', textoNps(s.nps), `${s.avaliacoes} avaliações`);
+  document.getElementById('insights').innerHTML = d.insights.map(t => `<li>${esc(t)}</li>`).join('');
+
+  const rot = d.dias.map(x => fmt.diaMes(x.data));
+  const pularRotulo = (r, i) => rot.length > 10 && i % Math.ceil(rot.length / 7) ? '' : r;
+  graficoBarras(document.getElementById('g-visitas'), {
+    rotulos: rot, altura: 200, mostrarRotulo: pularRotulo,
+    series: [{ cor: COR.planejado, valores: d.dias.map(x => x.planejados) }, { cor: COR.espontaneo, valores: d.dias.map(x => x.espontaneos) }],
+    dicaHtml: i => `<strong>${fmt.dataLonga(d.dias[i].data)}</strong><br>${d.dias[i].visitas} visitas<br>${d.dias[i].planejados} planejados · ${d.dias[i].espontaneos} espontâneos`,
+  });
+  graficoLinha(document.getElementById('g-conversao'), {
+    rotulos: rot, valores: d.dias.map(x => x.conversao), cor: COR.planejado, sufixo: '%',
+    dicaHtml: i => `<strong>${fmt.diaMes(d.dias[i].data)}</strong><br>Conversão: ${fmt.pct(d.dias[i].conversao)}`,
+  });
+  graficoLinha(document.getElementById('g-permanencia'), {
+    rotulos: rot, valores: d.dias.map(x => x.permanencia_media), cor: COR.planejado,
+    dicaHtml: i => `<strong>${fmt.diaMes(d.dias[i].data)}</strong><br>Permanência: ${fmt.minutos(d.dias[i].permanencia_media)}<br>NPS: ${textoNps(d.dias[i].nps)}`,
+  });
+
+  document.getElementById('n-aval').textContent = `${s.avaliacoes} avaliações`;
+  const tot = s.avaliacoes || 1;
+  document.getElementById('nps-resumo').innerHTML = s.avaliacoes ? `
+    <div class="linha" style="align-items:baseline"><span style="font-size:2.4rem;font-weight:800">${textoNps(s.nps)}</span><span class="mudo">NPS</span></div>
+    <div class="nps-barra" role="img" aria-label="Promotores ${s.promotores}, neutros ${s.neutros}, detratores ${s.detratores}">
+      <div style="flex:${s.promotores};background:${COR.ok}"></div><div style="flex:${s.neutros};background:${COR.neutro}"></div><div style="flex:${s.detratores};background:${COR.erro}"></div></div>
+    <div class="legenda">
+      <span><i style="background:${COR.ok}"></i>Promotores (9–10): ${Math.round(s.promotores / tot * 100)}%</span>
+      <span><i style="background:${COR.neutro}"></i>Neutros (7–8): ${Math.round(s.neutros / tot * 100)}%</span>
+      <span><i style="background:${COR.erro}"></i>Detratores (0–6): ${Math.round(s.detratores / tot * 100)}%</span></div>` : '<p class="mudo">Sem avaliações no período.</p>';
+  const nomesTema = { buffet: '🍽️ Buffet', espera: '⏱️ Espera', atendimento: '🙋 Atendimento' };
+  barrasH(document.getElementById('temas'), Object.entries(s.temas).map(([k, v]) => ({ rotulo: nomesTema[k], valor: v })),
+    { max: 5, formato: v => fmt.numero(v, 1) });
+  document.getElementById('comentarios').innerHTML = d.comentarios.length ? d.comentarios.map(c => `
+    <div class="comentario"><div class="linha" style="justify-content:space-between">
+      <span class="selo ${c.nota_nps >= 9 ? 'selo-ok' : c.nota_nps >= 7 ? '' : 'selo-erro'}">NPS ${c.nota_nps}</span>
+      <span class="mudo pequeno">${fmt.dataCurta(c.data)} · ${c.codigo}</span></div>
+      <p style="margin:.35rem 0 0">“${esc(c.comentario)}”</p></div>`).join('') : '<p class="mudo">Nenhum comentário no período.</p>';
+
+  const rc = d.recorrencia;
+  document.getElementById('rec-resumo').innerHTML = rc.clientes
+    ? `<strong>${rc.recorrentes}</strong> de <strong>${rc.clientes}</strong> clientes voltaram 2 vezes ou mais (média de ${fmt.numero(rc.media_visitas, 1)} visitas).`
+    : 'Nenhum cliente identificado no período.';
+  barrasH(document.getElementById('recorrencia'), Object.entries(rc.distribuicao).map(([k, v]) => ({
+    rotulo: `${k} visita${k === '1' ? '' : 's'}`, valor: v })), { cor: COR.planejado });
+
+  document.getElementById('pouco').innerHTML = d.pratos_pouco_desejados.length ? d.pratos_pouco_desejados.map(p => `
+    <tr><td>${CATEGORIAS[p.categoria].icone} ${esc(p.nome)}</td><td><span class="selo cat-${p.categoria}">${CATEGORIAS[p.categoria].nome}</span></td>
+      <td class="num">${p.dias}</td><td class="num">${p.desejos}</td><td class="num"><strong>${p.taxa}%</strong></td></tr>`).join('')
+    : '<tr><td colspan="5" class="mudo">Ainda não há intenções suficientes.</td></tr>';
+
+  document.getElementById('recentes').innerHTML = d.recentes.map(v => `
+    <tr><td class="cod">${v.codigo}</td>
+      <td><span class="selo ${v.origem === 'planejado' ? 'selo-bordo' : 'selo-ambar'}">${v.origem === 'planejado' ? 'Planejado' : 'Espontâneo'}</span></td>
+      <td>${fmt.dataCurta(v.check_in_em)} ${fmt.hora(v.check_in_em)}</td>
+      <td>${v.check_out_em ? fmt.hora(v.check_out_em) + (v.saida_estimada ? ' <span class="selo" title="Fechada automaticamente após 3 h">estimada</span>' : '') : '<span class="selo selo-ok">no salão</span>'}</td>
+      <td class="num">${fmt.minutos(v.permanencia)}</td><td class="num">${v.nota_nps ?? '—'}</td></tr>`).join('')
+    || '<tr><td colspan="6" class="mudo">Sem visitas no período.</td></tr>';
+  document.getElementById('csv').href = `/api/visitas.csv?inicio=${d.inicio}&fim=${d.fim}`;
+  return d;
+}
+
+// ------------------------------------------------------------------ controle
+async function atualizar() {
+  try {
+    const d = aba === 'hoje' ? await carregarHoje() : await carregarAnalise();
+    document.getElementById('atualizado').textContent = 'Atualizado às ' + fmt.horaSeg(d.atualizado_em);
+  } catch (e) { document.getElementById('atualizado').textContent = '⚠ ' + e.message; }
+}
+
+function trocarAba(nova) {
+  aba = nova;
+  document.getElementById('aba-hoje').setAttribute('aria-selected', String(aba === 'hoje'));
+  document.getElementById('aba-analise').setAttribute('aria-selected', String(aba === 'analise'));
+  document.getElementById('painel-hoje').hidden = aba !== 'hoje';
+  document.getElementById('painel-analise').hidden = aba !== 'analise';
+  document.getElementById('periodo').hidden = aba !== 'analise';
+  document.getElementById('btn-tv').hidden = aba !== 'hoje';
+  atualizar();
+}
+document.getElementById('aba-hoje').onclick = () => trocarAba('hoje');
+document.getElementById('aba-analise').onclick = () => trocarAba('analise');
+document.querySelectorAll('#periodo button').forEach(b => b.onclick = () => {
+  dias = Number(b.dataset.dias);
+  document.querySelectorAll('#periodo button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  atualizar();
+});
+document.querySelector('#periodo button[data-dias="7"]').setAttribute('aria-pressed', 'true');
+campoData.value = hojeISO();
+campoData.onchange = atualizar;
+
+const tv = document.getElementById('tv');
+document.getElementById('btn-tv').onclick = () => {
+  campoData.value = hojeISO();
+  tv.hidden = false;
+  document.documentElement.requestFullscreen?.().catch(() => {});
+  atualizar();
+};
+function sairTv() { tv.hidden = true; if (document.fullscreenElement) document.exitFullscreen(); }
+document.getElementById('tv-sair').onclick = sairTv;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') sairTv(); });
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) tv.hidden = true; });
+
+let redimensionar;
+window.addEventListener('resize', () => { clearTimeout(redimensionar); redimensionar = setTimeout(atualizar, 200); });
+setInterval(atualizar, 10000);
+trocarAba(location.hash === '#analise' ? 'analise' : 'hoje');
+</script>
+</body>
+</html>
