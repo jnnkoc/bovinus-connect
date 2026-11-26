@@ -1,16 +1,25 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Component, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   motion, AnimatePresence, MotionConfig, LayoutGroup,
   useScroll, useSpring, useTransform, useInView, animate,
 } from 'motion/react';
 import {
-  REPO, DOCS, EQUIPE, NAV, FATOS, DORES, JORNADAS, TELAS, INDICADORES, GANHOS, TECNOLOGIAS, DOCUMENTOS,
+  REPO, DOCS, EQUIPE, NAV, FATOS, DORES, JORNADAS, TELAS, TELAS_JORNADA, INDICADORES, GANHOS, TECNOLOGIAS, DOCUMENTOS, FASES,
 } from './dados.js';
 
 const B = import.meta.env.BASE_URL;
 const tela = id => `${B}telas/${id}.webp`;
 const raiz = caminho => `${B}../${caminho}`; // arquivos fora de site/ (docs, slides, vídeo)
-const TELA = Object.fromEntries(TELAS.map(t => [t.id, t]));
+const TELA = Object.fromEntries([...TELAS, ...TELAS_JORNADA].map(t => [t.id, t]));
+const infoTela = id => TELA[id] || { id, titulo: '', desc: '', tipo: id.includes('cliente') || id.includes('minha-visita') || id.includes('avaliar') ? 'celular' : 'desktop' };
+
+// Se uma seção falhar, só ela some — o resto do site continua de pé.
+class Protecao extends Component {
+  constructor(p) { super(p); this.state = { erro: false }; }
+  static getDerivedStateFromError() { return { erro: true }; }
+  componentDidCatch(e) { console.error(e); }
+  render() { return this.state.erro ? null : this.props.children; }
+}
 const surgir = {
   initial: { opacity: 0, y: 28 },
   whileInView: { opacity: 1, y: 0 },
@@ -36,8 +45,8 @@ function Marca() {
 }
 
 function Moldura({ id, prioridade, className = '' }) {
-  const t = TELA[id];
-  const img = <img src={tela(id)} alt={`${t.titulo}: ${t.desc}`} loading={prioridade ? 'eager' : 'lazy'} />;
+  const t = infoTela(id);
+  const img = <img src={tela(id)} alt={t.titulo ? `${t.titulo}: ${t.desc}` : ''} loading={prioridade ? 'eager' : 'lazy'} />;
   if (t.tipo === 'celular') return <div className={`moldura-celular ${className}`}>{img}</div>;
   if (t.tipo === 'tv') return <div className={`moldura-tv ${className}`}>{img}</div>;
   if (t.tipo === 'papel') return <div className={`moldura-papel ${className}`}>{img}</div>;
@@ -183,7 +192,7 @@ function Problema() {
     e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
   };
   return (
-    <section id="problema">
+    <section id="problema" className="claro">
       <div className="container">
         <CabSecao sobre="O problema" titulo="Quatro dores que hoje não aparecem em nenhum número.">
           No almoço por quilo da Unidade Augusta, saber quanto se vendeu não diz quem vem, quando chega, quanto espera,
@@ -272,8 +281,8 @@ function Jornada() {
               <motion.div key={tipo + p.tela}
                 initial={{ opacity: 0, y: 24, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -16, scale: .98 }} transition={{ duration: .45, ease: [.22, 1, .36, 1] }}>
-                <Moldura id={p.tela} />
-                <p className="palco-legenda">{TELA[p.tela].titulo} · {p.onde}</p>
+                <Moldura id={p.tela} prioridade />
+                <p className="palco-legenda">{infoTela(p.tela).titulo || p.titulo} · {p.onde}</p>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -558,6 +567,69 @@ function Documentacao({ abrirImagem }) {
   );
 }
 
+// ---------------------------------------------------------------- evolução
+function Evolucao() {
+  const [ativa, setAtiva] = useState(1);
+  const f = FASES[ativa];
+  return (
+    <section id="evolucao" className="claro">
+      <div className="container">
+        <CabSecao sobre="Próximos passos e evolução" titulo="Uma base pronta para crescer com a rede.">
+          O MVP já registra o que as próximas fases precisam: o código da visita, o celular com consentimento, a mesa e os
+          horários da jornada. Por isso o Connect pode evoluir por partes, sem trocar de sistema.
+        </CabSecao>
+
+        <div className="fases" role="tablist" aria-label="Fases do projeto">
+          <div className="fases-trilho" aria-hidden="true">
+            <motion.div className="fases-progresso" animate={{ scaleX: ativa / (FASES.length - 1) }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+          </div>
+          {FASES.map((x, k) => (
+            <button key={x.id} role="tab" aria-selected={ativa === k} className={`fase ${ativa === k ? 'ativa' : ''} ${k <= ativa ? 'passou' : ''}`} onClick={() => setAtiva(k)}>
+              <span className="fase-ponto">{x.status === 'implementado' ? '✓' : k + 1}</span>
+              <span className="fase-rot"><small>{x.fase}</small>{x.titulo}</span>
+            </button>
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div key={f.id} className="fase-painel" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: .35 }}>
+            <div className="fase-cab">
+              <div>
+                <span className={`selo ${f.status === 'implementado' ? 'selo-real' : 'selo-evo'}`}><i />{f.status === 'implementado' ? 'Implementado' : 'Evolução planejada'}</span>
+                <h3>{f.fase} · {f.titulo}</h3>
+                <p>{f.resumo}</p>
+              </div>
+            </div>
+            <div className="evo-grade">
+              {f.itens.map((it, k) => (
+                <motion.article key={it.t} className="evo" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08 * k, duration: .4 }}>
+                  <span className="evo-ic" aria-hidden="true">{it.ic}</span>
+                  <h4>{it.t}</h4>
+                  <p>{it.d}</p>
+                  {it.base && <div className="evo-base"><strong>Aproveita do MVP</strong>{it.base}</div>}
+                </motion.article>
+              ))}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        <motion.div className="diferencial" {...surgir}>
+          <div>
+            <span className="sobretitulo">Nosso diferencial</span>
+            <h3>Da intenção de visita a um ecossistema de relacionamento.</h3>
+          </div>
+          <ul>
+            <li><strong>Começa simples:</strong> roda hoje com Python e SQLite, sem custo de licença.</li>
+            <li><strong>Cresce por partes:</strong> cada fase usa os mesmos dados da jornada.</li>
+            <li><strong>Pensado para rede:</strong> fidelidade e comunicação que servem a todas as franquias.</li>
+          </ul>
+        </motion.div>
+        <p className="aviso-dados"><span className="selo selo-evo"><i />Evolução planejada</span>As fases 2 a 4 são propostas e ainda não estão implementadas.</p>
+      </div>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- mídia e equipe
 function Midia() {
   const iniciais = n => n.split(' ').map(p => p[0]).slice(0, 2).join('');
@@ -613,14 +685,15 @@ export default function App() {
       <a href="#problema" className="sr">Pular para o conteúdo</a>
       <Nav />
       <main>
-        <Hero />
-        <Problema />
-        <Jornada />
-        <Telas />
-        <Indicadores />
-        <Arquitetura abrirImagem={abrirImagem} />
-        <Documentacao abrirImagem={abrirImagem} />
-        <Midia />
+        <Protecao><Hero /></Protecao>
+        <Protecao><Problema /></Protecao>
+        <Protecao><Jornada /></Protecao>
+        <Protecao><Telas /></Protecao>
+        <Protecao><Indicadores /></Protecao>
+        <Protecao><Arquitetura abrirImagem={abrirImagem} /></Protecao>
+        <Protecao><Documentacao abrirImagem={abrirImagem} /></Protecao>
+        <Protecao><Evolucao /></Protecao>
+        <Protecao><Midia /></Protecao>
       </main>
       <footer className="rodape">
         <div className="container rodape-grid">

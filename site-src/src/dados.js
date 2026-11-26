@@ -11,7 +11,8 @@ export const NAV = [
   ['indicadores', 'Indicadores'],
   ['arquitetura', 'Arquitetura'],
   ['documentacao', 'Docs'],
-  ['midia', 'Vídeo e equipe'],
+  ['evolucao', 'Evolução'],
+  ['midia', 'Equipe'],
 ];
 
 export const FATOS = [
@@ -94,6 +95,13 @@ export const TELAS = [
   { id: '27-tv-salao', grupo: 'TVs', titulo: 'TV Salão', desc: 'Permanência, acima da média e mesas aguardando limpeza.', tipo: 'tv' },
 ];
 
+// Telas usadas só na jornada (não aparecem na galeria).
+export const TELAS_JORNADA = [
+  { id: '08-terminal-balanca-ok', grupo: 'Totem', titulo: 'Buffet concluído', desc: 'Confirmação da balança.', tipo: 'desktop' },
+  { id: '13-terminal-caixa-espontaneo', grupo: 'Totem', titulo: 'Saída do espontâneo', desc: 'Check-out com a mesa.', tipo: 'desktop' },
+  { id: '18-minha-visita-fidelidade', grupo: 'Cliente', titulo: 'Fidelidade', desc: 'Visitas e pontos após o cadastro.', tipo: 'celular' },
+];
+
 export const INDICADORES = [
   { nome: 'Conversão da intenção', formula: 'intenções com check-in ÷ intenções cujo horário + 30 min já passou', uso: 'Mostra se quem avisa realmente vem.' },
   { nome: 'Chegadas previstas × reais', formula: 'pessoas nas intenções × check-ins, a cada 15 min', uso: 'Compara o pico anunciado com o pico real.' },
@@ -147,4 +155,42 @@ export const DOCUMENTOS = [
   { titulo: 'Requisitos', desc: '17 requisitos funcionais e 10 não funcionais implementados.', md: '02-requisitos.md', pdf: '02-requisitos.pdf' },
   { titulo: 'Jornada e telas', desc: 'Telas do cliente e da equipe e a jornada passo a passo.', md: '03-jornada-e-telas.md', pdf: '03-jornada-e-telas.pdf' },
   { titulo: 'Diagramas e DER', desc: 'Casos de uso, DER e dicionário de dados conferidos com o schema.', md: '04-diagramas-e-der.md', pdf: '04-diagramas-e-der.pdf' },
+];
+
+// Evolução planejada (nada aqui está implementado). Cada item aponta o que do MVP ele reaproveita.
+export const FASES = [
+  {
+    id: 'f1', fase: 'Fase 1', titulo: 'MVP atual', status: 'implementado',
+    resumo: 'A base que já funciona e que todas as próximas fases reaproveitam.',
+    itens: [
+      { ic: '🎟️', t: 'Código único da visita', d: 'Intenção pelo app ou código no totem, do check-in à avaliação.' },
+      { ic: '📱', t: 'Celular com consentimento', d: 'Cliente identificado pelo celular, com aceite LGPD registrado.' },
+      { ic: '🍽️', t: 'Mesa e horários da jornada', d: 'Check-in, balança, check-out e mesa alimentam dashboard e TVs.' },
+      { ic: '⭐', t: 'Fidelidade simples', d: 'Visitas e pontos por celular, calculados no banco.' },
+    ],
+  },
+  {
+    id: 'f2', fase: 'Fase 2', titulo: 'Relacionamento', status: 'planejado',
+    resumo: 'Transformar a fidelidade simples em um programa de relacionamento para toda a rede.',
+    itens: [
+      { ic: '💎', t: 'Fidelidade robusta', d: 'Níveis, benefícios e resgate de pontos, no padrão dos programas de grandes redes de franquias.', base: 'visitas e pontos por celular (view fidelidade)' },
+      { ic: '📣', t: 'Comunicação com o cliente', d: 'Campanhas e mensagens segmentadas por frequência e preferência, com consentimento, em todas as unidades da rede.', base: 'celular com aceite LGPD e pratos de interesse' },
+    ],
+  },
+  {
+    id: 'f3', fase: 'Fase 3', titulo: 'Salão conectado', status: 'planejado',
+    resumo: 'Levar o sistema para a mesa e para as mãos da equipe, com dados mais precisos.',
+    itens: [
+      { ic: '📲', t: 'Tablet na mesa', d: 'O cliente chama o garçom pelo tablet e o chamado chega à equipe com o número da mesa.', base: 'mesa registrada na visita e TV Salão' },
+      { ic: '🧾', t: 'PDV mobile', d: 'Garçons anotam pedidos no celular ou tablet, e a gestão ganha visão mais fina de demanda e de mesas a limpar.', base: 'terminal web com papéis e lista de limpeza' },
+      { ic: '⚖️', t: 'Balanças inteligentes', d: 'Integração com balanças e cubas inteligentes para medir pratos e reposição, alimentando os dashboards com dados precisos.', base: 'etapa Balança e tempo até a balança' },
+    ],
+  },
+  {
+    id: 'f4', fase: 'Fase 4', titulo: 'Reservas para grupos', status: 'planejado',
+    resumo: 'Um produto novo para empresas e grandes equipes, sobre a mesma base.',
+    itens: [
+      { ic: '🗓️', t: 'Espaço reservado para equipes', d: 'Grandes grupos reservam um espaço dedicado, com número de mesas definido para a ocasião.', base: 'intenção de visita com horário e nº de pessoas' },
+    ],
+  },
 ];

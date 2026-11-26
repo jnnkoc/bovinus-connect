@@ -12,6 +12,7 @@ Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hack
 | 🎬 **Vídeo (1min43)** | [video/bovinus-connect.mp4](video/bovinus-connect.mp4) — motion design com as telas reais |
 | 🖥️ **Apresentação** | [PDF](slides/bovinus-connect.pdf) · [PPTX editável](slides/bovinus-connect.pptx) |
 | 📄 **Documentação** | [Visão geral](docs/01-visao-geral.md) · [Requisitos](docs/02-requisitos.md) · [Jornada e telas](docs/03-jornada-e-telas.md) · [Diagramas e DER](docs/04-diagramas-e-der.md) · [PDFs](docs/pdf/) · [Especificação](docs/ESPECIFICACAO.md) |
+| 🚀 **Evolução** | [Próximos passos e diferencial](#próximos-passos-e-evolução) |
 | 💻 **Rodar o MVP** | [Como rodar](#como-rodar) — Python 3.10+, sem pacotes extras |
 
 [![Capa do vídeo — clique para assistir](video/capa.jpg)](video/bovinus-connect.mp4)
@@ -55,6 +56,22 @@ Todas as 27 capturas estão em [`prints/`](prints/).
 
 Um único processo Python (`app.py`, biblioteca padrão) serve as páginas e a API REST e grava no SQLite. Sem frameworks,
 sem CDN e sem serviços externos. O DER e o dicionário de dados estão em [docs/04-diagramas-e-der.md](docs/04-diagramas-e-der.md).
+
+## Próximos passos e evolução
+
+O MVP já registra o que as próximas fases precisam: o **código da visita**, o **celular com consentimento**, a **mesa**
+e os **horários da jornada**. Por isso o Connect pode crescer por partes, sem trocar de sistema. Esse é o nosso
+diferencial competitivo.
+
+| Fase | Evolução (ainda não implementada) | Aproveita do MVP |
+| --- | --- | --- |
+| **1 · MVP atual** ✅ | Intenção de visita, jornada com código, fidelidade simples, dashboard e TVs | — |
+| **2 · Relacionamento** | **Fidelidade robusta** com níveis, benefícios e resgate de pontos, no padrão de grandes redes de franquias | Visitas e pontos por celular (view `fidelidade`) |
+| | **Comunicação com o cliente**: campanhas segmentadas por frequência e preferência, com consentimento, em todas as unidades | Celular com aceite LGPD e pratos de interesse |
+| **3 · Salão conectado** | **Tablet na mesa** para chamar o garçom | Mesa registrada na visita e TV Salão |
+| | **PDV mobile** para garçons anotarem pedidos, com visão mais fina de demanda e limpeza | Terminal web com papéis e lista de limpeza |
+| | **Balanças inteligentes**: dados de pratos e cubas alimentando os dashboards | Etapa Balança e tempo até a balança |
+| **4 · Reservas para grupos** | **Espaço reservado para grandes equipes**, com número de mesas definido | Intenção de visita com horário e nº de pessoas |
 
 ## Estrutura do repositório
 
@@ -236,4 +253,4 @@ recorrência por celular, chegadas previstas (pessoas) × reais (check-ins) por 
 
 ## Próximos passos (fora deste MVP)
 
-Botão "mesa limpa" para tirar a mesa da lista antes do tempo, benefícios para trocar pontos, foto do prato na balança com IA, chamado de garçom, e outras unidades.
+Ver [Próximos passos e evolução](#próximos-passos-e-evolução), no início deste README.

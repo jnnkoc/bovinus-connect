@@ -44,11 +44,16 @@ até 3 pratos de interesse. Isso dá à casa uma estimativa de demanda que hoje 
 - Mudança na forma de trabalho da casa
 - Outras unidades além da Augusta
 
-## Próximos passos (não implementados)
+## Próximos passos e evolução (não implementados)
 
-- Botão "mesa limpa" e mapa de mesas
-- Troca de pontos por benefícios
-- Integração com a balança e o caixa existentes
+O MVP já guarda o código da visita, o celular com consentimento, a mesa e os horários da jornada; cada fase reaproveita
+essa base.
+
+- **Fase 2 · Relacionamento:** fidelidade robusta (níveis, benefícios e resgate de pontos, no padrão de grandes redes de
+  franquias) e comunicação segmentada com os clientes, com consentimento, em todas as unidades.
+- **Fase 3 · Salão conectado:** tablet na mesa para chamar o garçom, PDV mobile para anotar pedidos (com visão mais fina
+  de demanda e limpeza) e integração com balanças inteligentes para dados de pratos e cubas nos dashboards.
+- **Fase 4 · Reservas para grupos:** espaço reservado para grandes equipes, com número de mesas definido.
 
 ## Sobre os dados
 
