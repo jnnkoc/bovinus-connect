@@ -10,8 +10,9 @@ Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hack
 | --- | --- |
 | 🌐 **Site do projeto** | [jnnkoc.github.io/bovinus-connect](https://jnnkoc.github.io/bovinus-connect/) — demonstração estática com as telas e simulações |
 | 🎬 **Vídeo (1min43)** | [video/bovinus-connect.mp4](video/bovinus-connect.mp4) — motion design com as telas reais |
-| 🖥️ **Apresentação** | [PDF](slides/bovinus-connect.pdf) · [PPTX editável](slides/bovinus-connect.pptx) |
+| 🖥️ **Apresentação (5 slides · 4 min)** | [PDF](slides/bovinus-connect.pdf) · [PPTX editável, com roteiro nas notas](slides/bovinus-connect.pptx) |
 | 📄 **Documentação** | [Visão geral](docs/01-visao-geral.md) · [Requisitos](docs/02-requisitos.md) · [Jornada e telas](docs/03-jornada-e-telas.md) · [Diagramas e DER](docs/04-diagramas-e-der.md) · [PDFs](docs/pdf/) · [Especificação](docs/ESPECIFICACAO.md) |
+| 📸 **Capturas** | [5 telas principais](#capturas) · [todas as 27 telas](docs/03-jornada-e-telas.md#todas-as-capturas) |
 | 🚀 **Evolução** | [Próximos passos e diferencial](#próximos-passos-e-evolução) |
 | 💻 **Rodar o MVP** | [Como rodar](#como-rodar) — Python 3.10+, sem pacotes extras |
 
@@ -41,14 +42,25 @@ Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hack
 - **Segurança:** login com papéis (gerente e atendente), senhas PBKDF2, bloqueio após 5 tentativas.
 - **Qualidade:** 21 testes automatizados (`testes.py`).
 
-| | | |
-| --- | --- | --- |
-| ![Planejar visita](prints/02-cliente-planejar.png) | ![Código da visita](prints/03-cliente-codigo.png) | ![Minha visita e fidelidade](prints/18-minha-visita-fidelidade.png) |
-| Planejar visita | Código + QR | Minha visita e fidelidade |
-| ![Terminal: espontâneo](prints/11-terminal-espontaneo.png) | ![Dashboard Hoje](prints/20-dashboard-hoje.png) | ![TV Salão](prints/27-tv-salao.png) |
-| Totem: espontâneo | Dashboard · Hoje | TV Salão |
+## Capturas
 
-Todas as 27 capturas estão em [`prints/`](prints/).
+As 5 telas principais, com dados simulados. As 27 capturas avulsas estão em
+[Jornada e telas](docs/03-jornada-e-telas.md#todas-as-capturas).
+
+**1 · App do cliente** — planejar, receber o código, acompanhar a visita e avaliar
+![App do cliente](capturas/01-cliente.png)
+
+**2 · Terminal da equipe** — entrada, espontâneo com comprovante, balança e caixa
+![Terminal da equipe](capturas/02-terminal.png)
+
+**3 · Dashboard gerencial** — hoje ao vivo e análise do período
+![Dashboard gerencial](capturas/03-gestao.png)
+
+**4 · Modo TV** — cozinha e salão
+![Modo TV](capturas/04-tvs.png)
+
+**5 · Cardápio do dia** — cadastro de pratos com prévia do app
+![Cardápio do dia](capturas/05-cardapio.png)
 
 ## Arquitetura
 
@@ -85,7 +97,8 @@ bovinus-connect/
 ├── video/              ← vídeo final (MP4) e capa
 ├── video-src/          ← código-fonte do vídeo (Remotion)
 ├── slides/             ← apresentação (PPTX editável, PDF e capa)
-├── prints/             ← capturas das telas do MVP (dados simulados)
+├── capturas/           ← 5 colagens das telas principais (usadas neste README)
+├── prints/             ← as 27 capturas avulsas das telas do MVP (dados simulados)
 └── docs/               ← documentação (Markdown), PDFs e diagramas SVG
 ```
 

@@ -35,3 +35,40 @@ avaliação. A avaliação só é liberada depois do check-out.
 4. **Check-out** no caixa, com o número da mesa (opcional). A mesa aparece na TV Salão como "aguardando limpeza".
 5. **Minha visita:** o espontâneo pode completar o cadastro (nome, celular, LGPD) para ganhar fidelidade.
 6. **Avaliação:** NPS e notas por tema; cada avaliação soma 1 ponto ao celular do cliente.
+
+## Todas as capturas
+
+Capturas da aplicação rodando com o banco de demonstração (**dados simulados**). Clique para ampliar.
+
+### Cliente
+
+| | | |
+| --- | --- | --- |
+| [![Início](../prints/01-cliente-inicio.png)](../prints/01-cliente-inicio.png) | [![Planejar visita](../prints/02-cliente-planejar.png)](../prints/02-cliente-planejar.png) | [![Código + QR](../prints/03-cliente-codigo.png)](../prints/03-cliente-codigo.png) |
+| Início | Planejar visita | Código + QR |
+| [![Minha visita (antes do check-in)](../prints/04-minha-visita-antes.png)](../prints/04-minha-visita-antes.png) | [![Visita concluída](../prints/14-minha-visita-concluida.png)](../prints/14-minha-visita-concluida.png) | [![Completar cadastro](../prints/17-minha-visita-cadastro.png)](../prints/17-minha-visita-cadastro.png) |
+| Minha visita (antes do check-in) | Visita concluída | Completar cadastro |
+| [![Fidelidade](../prints/18-minha-visita-fidelidade.png)](../prints/18-minha-visita-fidelidade.png) | [![Avaliação](../prints/15-avaliar.png)](../prints/15-avaliar.png) | [![Pontos após avaliar](../prints/16-avaliar-obrigado.png)](../prints/16-avaliar-obrigado.png) |
+| Fidelidade | Avaliação | Pontos após avaliar |
+
+### Terminal
+
+| | | |
+| --- | --- | --- |
+| [![Entrada](../prints/05-terminal-entrada.png)](../prints/05-terminal-entrada.png) | [![Check-in feito](../prints/06-terminal-checkin.png)](../prints/06-terminal-checkin.png) | [![Balança](../prints/07-terminal-balanca.png)](../prints/07-terminal-balanca.png) |
+| Entrada | Check-in feito | Balança |
+| [![Buffet concluído](../prints/08-terminal-balanca-ok.png)](../prints/08-terminal-balanca-ok.png) | [![Caixa com mesa](../prints/09-terminal-caixa.png)](../prints/09-terminal-caixa.png) | [![Saída registrada](../prints/10-terminal-caixa-ok.png)](../prints/10-terminal-caixa-ok.png) |
+| Buffet concluído | Caixa com mesa | Saída registrada |
+| [![Espontâneo](../prints/11-terminal-espontaneo.png)](../prints/11-terminal-espontaneo.png) | [![Comprovante](../prints/12-comprovante.png)](../prints/12-comprovante.png) | [![Saída do espontâneo](../prints/13-terminal-caixa-espontaneo.png)](../prints/13-terminal-caixa-espontaneo.png) |
+| Espontâneo | Comprovante | Saída do espontâneo |
+
+### Gestão
+
+| | | |
+| --- | --- | --- |
+| [![Login da equipe](../prints/19-login.png)](../prints/19-login.png) | [![Dashboard · Hoje](../prints/20-dashboard-hoje.png)](../prints/20-dashboard-hoje.png) | [![Dashboard · Hoje (página inteira)](../prints/21-dashboard-hoje-completo.png)](../prints/21-dashboard-hoje-completo.png) |
+| Login da equipe | Dashboard · Hoje | Dashboard · Hoje (página inteira) |
+| [![Análise do período](../prints/22-dashboard-analise.png)](../prints/22-dashboard-analise.png) | [![Análise (página inteira)](../prints/23-dashboard-analise-completo.png)](../prints/23-dashboard-analise-completo.png) | [![Escolha da TV](../prints/24-tv-escolha.png)](../prints/24-tv-escolha.png) |
+| Análise do período | Análise (página inteira) | Escolha da TV |
+| [![Cardápio do dia](../prints/25-cardapio.png)](../prints/25-cardapio.png) | [![TV Cozinha](../prints/26-tv-cozinha.png)](../prints/26-tv-cozinha.png) | [![TV Salão](../prints/27-tv-salao.png)](../prints/27-tv-salao.png) |
+| Cardápio do dia | TV Cozinha | TV Salão |

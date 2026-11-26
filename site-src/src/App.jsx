@@ -649,7 +649,7 @@ function Midia() {
           <motion.div className="slides-box" {...surgir} transition={{ ...surgir.transition, delay: .1 }}>
             <img src={raiz('slides/capa.png')} alt="Capa da apresentação Bovinu's Connect" loading="lazy" />
             <h3>Apresentação</h3>
-            <p className="lead" style={{ fontSize: '.95rem' }}>Problema, solução, jornada, indicadores, arquitetura e próximos passos.</p>
+            <p className="lead" style={{ fontSize: '.95rem' }}>5 slides para até 4 minutos: problema, descoberta, construção, integração e entrega.</p>
             <div className="btns">
               <a className="btn btn-primario" href={raiz('slides/bovinus-connect.pdf')} target="_blank" rel="noreferrer">Abrir PDF</a>
               <a className="btn" href={raiz('slides/bovinus-connect.pptx')} download>Baixar PPTX</a>
