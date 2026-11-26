@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal de atendimento | Bovinu’s Augusta</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #f6f1ea; color: #2d1f18; font: 1rem system-ui, sans-serif; }
+main { max-width: 730px; margin: auto; padding: 3rem 1.25rem; }
+header { margin-bottom: 2rem; }
+header p { color: #823619; font-weight: 700; margin: 0; }
+h1 { font-size: clamp(2rem, 6vw, 3rem); margin: .3rem 0; }
+section, details { background: white; padding: 1.4rem; border: 1px solid #e5dbd1; border-radius: 16px; margin-bottom: 1rem; }
+h2 { margin-top: 0; font-size: 1.25rem; }
+label { display: block; font-weight: 650; margin-bottom: .4rem; }
+.controls { display: flex; gap: .6rem; flex-wrap: wrap; }
+input, button { font: inherit; border-radius: 8px; padding: .7rem .9rem; }
+input { border: 1px solid #aa978b; min-width: 0; }
+.controls input { flex: 1 1 13rem; }
+button { border: 0; background: #863819; color: white; cursor: pointer; font-weight: 650; }
+button:disabled { background: #eee8e2; color: #61544b; cursor: default; }
+ol { list-style: none; padding: 0; margin-bottom: 0; }
+li { display: grid; grid-template-columns: 1fr auto; gap: .7rem; align-items: center; border-top: 1px solid #eee4db; padding: .8rem 0; }
+small { display: block; margin-top: .2rem; color: #69554a; }
+summary { cursor: pointer; font-weight: 650; }
+details form { margin-top: 1rem; }
+#mensagem { min-height: 1.5em; margin-bottom: 0; }
+@media (max-width: 460px) { li { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <header><p>Bovinu’s Grill &amp; Beer · Augusta</p><h1>Terminal de atendimento</h1></header>
+  <section aria-labelledby="titulo-visita">
+    <h2 id="titulo-visita">Localizar visita</h2>
+    <form id="busca">
+      <label for="codigo">Código da visita</label>
+      <div class="controls">
+        <input id="codigo" required maxlength="12" pattern="[A-Fa-f0-9]{12}" spellcheck="false"
+               autocomplete="off" placeholder="Ex. 48A26C50B731" title="12 caracteres de 0 a 9 ou A a F">
+        <button>Buscar</button>
+      </div>
+    </form>
+    <p id="mensagem" role="status"></p>
+    <ol id="etapas" hidden>
+      <li><div><strong>Chegada</strong><small></small></div><button data-etapa="check-in">Registrar check-in</button></li>
+      <li><div><strong>Primeira pesagem</strong><small></small></div><button data-etapa="buffet">Concluir buffet</button></li>
+      <li><div><strong>Saída</strong><small></small></div><button data-etapa="check-out">Registrar check-out</button></li>
+    </ol>
+  </section>
+  <details>
+    <summary>Gerar visita de teste</summary>
+    <form id="teste">
+      <label for="horario">Horário previsto de chegada</label>
+      <div class="controls"><input id="horario" type="datetime-local" required><button>Gerar código</button></div>
+    </form>
+  </details>
+</main>
+<script>
+const busca = document.querySelector('#busca');
+const codigo = document.querySelector('#codigo');
+const teste = document.querySelector('#teste');
+const horario = document.querySelector('#horario');
+const etapas = document.querySelector('#etapas');
+const mensagem = document.querySelector('#mensagem');
+const campos = ['check_in_em', 'buffet_concluido_em', 'check_out_em'];
+const botoes = [...etapas.querySelectorAll('button')];
+const formato = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short', timeStyle: 'medium', timeZone: 'America/Sao_Paulo'
+});
+let atual = null;
+
+function mostrar(jornada) {
+  atual = jornada;
+  etapas.hidden = !jornada;
+  botoes.forEach((botao, indice) => {
+    const data = jornada?.[campos[indice]];
+    botao.disabled = !jornada || !!data || (indice > 0 && !jornada[campos[indice - 1]]);
+    botao.closest('li').querySelector('small').textContent = data
+      ? formato.format(new Date(data))
+      : 'Aguardando registro';
+  });
+}
+
+async function api(rota, dados) {
+  const resposta = await fetch(rota, dados === undefined ? {} : {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados)
+  });
+  const resultado = await resposta.json();
+  if (!resposta.ok) throw new Error(resultado.erro);
+  return resultado;
+}
+
+async function executar(acao, sucesso) {
+  const controles = [...document.querySelectorAll('form input, form button, #etapas button')];
+  controles.forEach(controle => controle.disabled = true);
+  mensagem.textContent = 'Processando…';
+  try {
+    const jornada = await acao();
+    mostrar(jornada);
+    codigo.value = jornada.codigo_visita;
+    mensagem.textContent = sucesso;
+  } catch (erro) {
+    mensagem.textContent = erro.message;
+  } finally {
+    controles.filter(controle => !etapas.contains(controle)).forEach(controle => controle.disabled = false);
+    mostrar(atual);
+  }
+}
+
+codigo.addEventListener('input', () => {
+  mostrar(null);
+  mensagem.textContent = '';
+});
+busca.addEventListener('submit', evento => {
+  evento.preventDefault();
+  mostrar(null);
+  executar(() => api('/api/jornadas/' + codigo.value.toUpperCase()), 'Visita localizada.');
+});
+teste.addEventListener('submit', evento => {
+  evento.preventDefault();
+  executar(() => api('/api/intencoes', {horario_previsto: new Date(horario.value).toISOString()}),
+    'Visita de teste criada. Use o código acima.');
+});
+botoes.forEach(botao => botao.addEventListener('click', () => {
+  executar(() => api('/api/jornadas/' + atual.codigo_visita + '/' + botao.dataset.etapa, {}),
+    'Etapa registrada.');
+}));
+</script>
+</html>
