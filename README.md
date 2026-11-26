@@ -42,7 +42,7 @@ Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hack
 - **Segurança:** login com papéis (gerente e atendente), senhas PBKDF2, bloqueio após 5 tentativas.
 - **Qualidade:** 21 testes automatizados (`testes.py`).
 
-## Capturas
+## Capturas de telas
 
 As 5 telas principais, com dados simulados. As 27 capturas avulsas estão em
 [Jornada e telas](docs/03-jornada-e-telas.md#todas-as-capturas).
@@ -62,7 +62,7 @@ As 5 telas principais, com dados simulados. As 27 capturas avulsas estão em
 **5 · Cardápio do dia** — cadastro de pratos com prévia do app
 ![Cardápio do dia](capturas/05-cardapio.png)
 
-## Arquitetura
+## Arquitetura do projeto
 
 ![Arquitetura](docs/diagramas/arquitetura.svg)
 
