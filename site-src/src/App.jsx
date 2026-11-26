@@ -704,7 +704,6 @@ export default function App() {
           </div>
           <div>
             <p><a href={REPO} target="_blank" rel="noreferrer">Repositório no GitHub</a></p>
-            <p>Trilha do vídeo: Pixabay (licença de conteúdo Pixabay).</p>
           </div>
         </div>
       </footer>
