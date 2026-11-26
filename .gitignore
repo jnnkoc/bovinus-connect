@@ -3,3 +3,6 @@ bovinus.db-journal
 __pycache__/
 *.pyc
 .vscode/
+node_modules/
+site-src/dist/
+video-src/out/

@@ -378,7 +378,7 @@ async function carregarHoje() {
     kpi('No salão agora', c.no_salao === null ? '—' : fmt.numero(c.no_salao), d.ao_vivo ? 'check-in sem check-out' : 'só para hoje') +
     kpi('Conversão da intenção', fmt.pct(c.conversao.pct), c.conversao.elegiveis ? `${c.conversao.convertidas} de ${c.conversao.elegiveis} com horário + 30 min vencido` : 'nenhuma intenção vencida ainda') +
     kpi('Permanência média', fmt.minutos(c.permanencia_media), `até a balança: ${fmt.minutos(c.balanca_media)}`) +
-    kpi('NPS', textoNps(c.nps), c.avaliacoes ? `${c.avaliacoes} avaliações hoje` : 'sem avaliações ainda');
+    kpi('NPS', textoNps(c.nps), c.avaliacoes ? `${c.avaliacoes} ${c.avaliacoes === 1 ? 'avaliação' : 'avaliações'} hoje` : 'sem avaliações ainda');
 
   const s = d.serie;
   graficoBarras(document.getElementById('g-chegadas'), {
@@ -504,7 +504,7 @@ async function carregarAnalise() {
     kpi('Planejados', fmt.pct(r.visitas ? Math.round(r.planejados / r.visitas * 100) : null), `${r.planejados} visitas vieram do app`) +
     kpi('Conversão da intenção', fmt.pct(r.conversao.pct), `${r.conversao.convertidas} de ${r.conversao.elegiveis} intenções`) +
     kpi('Permanência média', fmt.minutos(r.permanencia_media), `até a balança: ${fmt.minutos(r.balanca_media)}`) +
-    kpi('NPS', textoNps(s.nps), `${s.avaliacoes} avaliações`);
+    kpi('NPS', textoNps(s.nps), `${s.avaliacoes} ${s.avaliacoes === 1 ? 'avaliação' : 'avaliações'}`);
   document.getElementById('insights').innerHTML = d.insights.map(t => `<li>${esc(t)}</li>`).join('');
 
   const rot = d.dias.map(x => fmt.diaMes(x.data));
@@ -523,7 +523,7 @@ async function carregarAnalise() {
     dicaHtml: i => `<strong>${fmt.diaMes(d.dias[i].data)}</strong><br>Permanência: ${fmt.minutos(d.dias[i].permanencia_media)}<br>NPS: ${textoNps(d.dias[i].nps)}`,
   });
 
-  document.getElementById('n-aval').textContent = `${s.avaliacoes} avaliações`;
+  document.getElementById('n-aval').textContent = `${s.avaliacoes} ${s.avaliacoes === 1 ? 'avaliação' : 'avaliações'}`;
   const tot = s.avaliacoes || 1;
   document.getElementById('nps-resumo').innerHTML = s.avaliacoes ? `
     <div class="linha" style="align-items:baseline"><span style="font-size:2.4rem;font-weight:800">${textoNps(s.nps)}</span><span class="mudo">NPS</span></div>

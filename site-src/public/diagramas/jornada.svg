@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" font-family="Segoe UI, Inter, system-ui, sans-serif">
+  <title>Jornada do cliente: planejado e espontâneo</title>
+  <defs>
+    <marker id="s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#9a8478"/>
+    </marker>
+  </defs>
+  <rect width="960" height="420" rx="20" fill="#fffdf9"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#2a1a16">Duas portas de entrada, uma só jornada</text>
+  <text x="40" y="78" font-size="14" fill="#6b5a52">O código BOV-XXXX acompanha o cliente do começo ao fim</text>
+
+  <rect x="40" y="112" width="200" height="70" rx="12" fill="#7b1c20"/>
+  <text x="60" y="142" font-size="15" font-weight="700" fill="#fff">Planejado</text>
+  <text x="60" y="164" font-size="12" fill="#f3d9b5">intenção no app + código</text>
+  <rect x="40" y="208" width="200" height="70" rx="12" fill="#d4952b"/>
+  <text x="60" y="238" font-size="15" font-weight="700" fill="#2a1a16">Espontâneo</text>
+  <text x="60" y="260" font-size="12" fill="#2a1a16">código gerado no totem</text>
+
+  <g stroke="#9a8478" stroke-width="1.6" fill="none">
+    <path d="M240 147H270V195H286" marker-end="url(#s)"/>
+    <path d="M240 243H270V195"/>
+  </g>
+
+  <g font-size="14" fill="#2a1a16">
+    <rect x="290" y="165" width="140" height="60" rx="12" fill="#fff" stroke="#e5d8cc"/>
+    <text x="360" y="192" text-anchor="middle" font-weight="700">Check-in</text>
+    <text x="360" y="212" text-anchor="middle" font-size="12" fill="#6b5a52">entrada</text>
+    <rect x="460" y="165" width="140" height="60" rx="12" fill="#fff" stroke="#e5d8cc" stroke-dasharray="5 4"/>
+    <text x="530" y="192" text-anchor="middle" font-weight="700">Buffet</text>
+    <text x="530" y="212" text-anchor="middle" font-size="12" fill="#6b5a52">balança · opcional</text>
+    <rect x="630" y="165" width="140" height="60" rx="12" fill="#fff" stroke="#e5d8cc"/>
+    <text x="700" y="192" text-anchor="middle" font-weight="700">Check-out</text>
+    <text x="700" y="212" text-anchor="middle" font-size="12" fill="#6b5a52">caixa · mesa opcional</text>
+    <rect x="800" y="165" width="130" height="60" rx="12" fill="#fff" stroke="#e5d8cc"/>
+    <text x="865" y="192" text-anchor="middle" font-weight="700">Avaliação</text>
+    <text x="865" y="212" text-anchor="middle" font-size="12" fill="#6b5a52">NPS + temas</text>
+  </g>
+  <g stroke="#9a8478" stroke-width="1.6" fill="none">
+    <path d="M430 195H456" marker-end="url(#s)"/><path d="M600 195H626" marker-end="url(#s)"/><path d="M770 195H796" marker-end="url(#s)"/>
+    <path d="M360 225V286" marker-end="url(#s)"/>
+    <path d="M140 278V320H296" marker-end="url(#s)"/>
+    <path d="M700 225V286" marker-end="url(#s)"/>
+    <path d="M865 225V286" marker-end="url(#s)"/>
+  </g>
+  <rect x="300" y="290" width="300" height="90" rx="12" fill="#f8ecd8" stroke="#e7c48a"/>
+  <text x="318" y="318" font-size="14" font-weight="700" fill="#2a1a16">Minha visita · Fidelidade</text>
+  <text x="318" y="340" font-size="12" fill="#6b5a52">status ao vivo · cadastro do espontâneo</text>
+  <text x="318" y="360" font-size="12" fill="#6b5a52">+1 visita no check-out · +1 ponto por avaliação</text>
+  <rect x="630" y="290" width="300" height="90" rx="12" fill="#2a1a16"/>
+  <text x="648" y="318" font-size="14" font-weight="700" fill="#fff">Gestão em tempo real</text>
+  <text x="648" y="340" font-size="12" fill="#e8d9cf">Dashboard · TV Cozinha · TV Salão</text>
+  <text x="648" y="360" font-size="12" fill="#e8d9cf">mesa do check-out → "aguardando limpeza"</text>
+</svg>

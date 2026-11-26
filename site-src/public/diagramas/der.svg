@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="Segoe UI, Inter, system-ui, sans-serif">
+  <title>DER do Bovinu's Connect</title>
+  <rect width="960" height="560" rx="20" fill="#fffdf9"/>
+  <text x="40" y="50" font-size="22" font-weight="700" fill="#2a1a16">Modelo de dados (schema.sql)</text>
+  <text x="40" y="74" font-size="13" fill="#6b5a52">Bordô: jornada · Âmbar: cardápio · Cinza: equipe e configuração</text>
+
+  <g stroke="#9a8478" stroke-width="1.5" fill="none" font-size="12">
+    <path d="M250 150H300"/><path d="M500 150H550"/><path d="M750 150H790"/>
+    <path d="M400 232V316"/><path d="M510 366H560"/>
+    <path d="M150 232V262H550" stroke-dasharray="5 4"/>
+  </g>
+  <g font-size="11" fill="#6b5a52" text-anchor="middle">
+    <text x="275" y="142">1 : N</text>
+    <text x="525" y="142">1 : 0..1</text>
+    <text x="770" y="142">1 : 0..1</text>
+    <text x="416" y="270">1 : N</text>
+    <text x="535" y="358">N : 1</text>
+    <text x="775" y="364">1 : N</text>
+    <text x="275" y="256">fidelidade (cliente 0..1 → N visitas)</text>
+  </g>
+
+  <g font-size="12" fill="#2a1a16">
+    <rect x="50" y="100" width="200" height="132" rx="10" fill="#fff" stroke="#7b1c20" stroke-width="1.5"/>
+    <rect x="50" y="100" width="200" height="30" rx="10" fill="#7b1c20"/><rect x="50" y="118" width="200" height="12" fill="#7b1c20"/>
+    <text x="150" y="120" text-anchor="middle" font-weight="700" fill="#fff" font-size="13">CLIENTE</text>
+    <text x="64" y="150">id (PK)</text><text x="64" y="170">nome</text><text x="64" y="190">celular (UK)</text><text x="64" y="210">consentimento_em</text>
+
+    <rect x="300" y="100" width="200" height="132" rx="10" fill="#fff" stroke="#7b1c20" stroke-width="1.5"/>
+    <rect x="300" y="100" width="200" height="30" rx="10" fill="#7b1c20"/><rect x="300" y="118" width="200" height="12" fill="#7b1c20"/>
+    <text x="400" y="120" text-anchor="middle" font-weight="700" fill="#fff" font-size="13">INTENCAO</text>
+    <text x="314" y="150">id (PK) · codigo (UK)</text><text x="314" y="170">cliente_id (FK)</text><text x="314" y="190">horario_previsto</text><text x="314" y="210">pessoas · criada_em</text>
+
+    <rect x="550" y="100" width="200" height="190" rx="10" fill="#fff" stroke="#7b1c20" stroke-width="1.5"/>
+    <rect x="550" y="100" width="200" height="30" rx="10" fill="#7b1c20"/><rect x="550" y="118" width="200" height="12" fill="#7b1c20"/>
+    <text x="650" y="120" text-anchor="middle" font-weight="700" fill="#fff" font-size="13">VISITA</text>
+    <text x="564" y="150">id (PK) · codigo (UK) · origem</text><text x="564" y="170">intencao_id (FK, UK)</text><text x="564" y="190">cliente_id (FK)</text>
+    <text x="564" y="210">check_in_em</text><text x="564" y="230">buffet_concluido_em</text><text x="564" y="250">check_out_em · mesa</text><text x="564" y="270">saida_estimada</text>
+
+    <rect x="790" y="100" width="140" height="152" rx="10" fill="#fff" stroke="#7b1c20" stroke-width="1.5"/>
+    <rect x="790" y="100" width="140" height="30" rx="10" fill="#7b1c20"/><rect x="790" y="118" width="140" height="12" fill="#7b1c20"/>
+    <text x="860" y="120" text-anchor="middle" font-weight="700" fill="#fff" font-size="13">AVALIACAO</text>
+    <text x="802" y="150">visita_id (PK, FK)</text><text x="802" y="170">nota_nps</text><text x="802" y="190">nota_buffet</text><text x="802" y="210">nota_espera</text><text x="802" y="230">nota_atendimento</text><text x="802" y="246" font-size="11" fill="#6b5a52">comentario · criada_em</text>
+
+    <rect x="300" y="316" width="210" height="92" rx="10" fill="#fff" stroke="#d4952b" stroke-width="1.5"/>
+    <rect x="300" y="316" width="210" height="30" rx="10" fill="#d4952b"/><rect x="300" y="334" width="210" height="12" fill="#d4952b"/>
+    <text x="405" y="336" text-anchor="middle" font-weight="700" font-size="13">INTENCAO_PRATO</text>
+    <text x="314" y="366">intencao_id (PK, FK)</text><text x="314" y="386">prato_id (PK, FK) · até 3</text>
+
+    <rect x="560" y="316" width="200" height="112" rx="10" fill="#fff" stroke="#d4952b" stroke-width="1.5"/>
+    <rect x="560" y="316" width="200" height="30" rx="10" fill="#d4952b"/><rect x="560" y="334" width="200" height="12" fill="#d4952b"/>
+    <text x="660" y="336" text-anchor="middle" font-weight="700" font-size="13">PRATO</text>
+    <text x="574" y="366">id (PK) · nome</text><text x="574" y="386">categoria · descricao</text><text x="574" y="406">vegetariano</text>
+
+    <rect x="790" y="316" width="140" height="112" rx="10" fill="#fff" stroke="#d4952b" stroke-width="1.5"/>
+    <rect x="790" y="316" width="140" height="30" rx="10" fill="#d4952b"/><rect x="790" y="334" width="140" height="12" fill="#d4952b"/>
+    <text x="860" y="336" text-anchor="middle" font-weight="700" font-size="13">CARDAPIO_DIA</text>
+    <text x="802" y="366">data (PK)</text><text x="802" y="386">prato_id (PK, FK)</text><text x="802" y="406">destaque</text>
+  </g>
+  <path d="M760 372H790" stroke="#9a8478" stroke-width="1.5"/>
+  
+  <g font-size="12" fill="#2a1a16">
+    <rect x="50" y="440" width="270" height="88" rx="10" fill="#f4efea" stroke="#cfc4ba"/>
+    <text x="64" y="464" font-weight="700" font-size="13">USUARIO 1 — N SESSAO</text>
+    <text x="64" y="486">login (UK) · papel · senha_hash · ativo</text>
+    <text x="64" y="506">token_hash (PK) · expira_em</text>
+    <rect x="340" y="440" width="200" height="88" rx="10" fill="#f4efea" stroke="#cfc4ba"/>
+    <text x="354" y="464" font-weight="700" font-size="13">PARAMETRO</text>
+    <text x="354" y="486">chave (PK) · valor</text>
+    <text x="354" y="506" fill="#6b5a52">dados_simulados, demo_agora</text>
+    <rect x="560" y="440" width="370" height="88" rx="10" fill="#fff" stroke="#e5d8cc" stroke-dasharray="5 4"/>
+    <text x="574" y="464" font-weight="700" font-size="13">VIEWS</text>
+    <text x="574" y="486">jornada — intenção + visita + avaliação por código</text>
+    <text x="574" y="506">fidelidade — visitas (check-out) e pontos (avaliações)</text>
+  </g>
+</svg>

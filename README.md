@@ -1,9 +1,114 @@
-# Bovinu's Connect — MVP do Hackathon (FMU)
+# Bovinu's Connect
 
-Aplicação web responsiva que liga a **intenção de visita** do cliente do almoço self-service da Bovinu's Grill & Beer
-(Unidade Augusta) aos registros de **chegada, buffet, saída e satisfação**, alimentando um **dashboard gerencial**.
+Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hackathon FMU 2026.2**, com o desafio da
+**Bovinu's Grill & Beer** (Unidade Augusta, almoço por quilo).
 
-> Os números exibidos vêm de `seed.py` e são **dados simulados** (identificados na interface). Nenhum número é dado real da Bovinu's.
+> O cliente avisa que vem e o que quer encontrar no buffet. A equipe registra chegada, balança e saída com um único
+> código. A gestão passa a ver, ao vivo, uma jornada que antes ninguém media.
+
+| | |
+| --- | --- |
+| 🌐 **Site do projeto** | [jnnkoc.github.io/bovinus-connect](https://jnnkoc.github.io/bovinus-connect/) — demonstração estática com as telas e simulações |
+| 🎬 **Vídeo (1min43)** | [video/bovinus-connect.mp4](video/bovinus-connect.mp4) — motion design com as telas reais, sem narração |
+| 🖥️ **Apresentação** | [PDF](slides/bovinus-connect.pdf) · [PPTX editável](slides/bovinus-connect.pptx) |
+| 📄 **Documentação** | [Visão geral](docs/01-visao-geral.md) · [Requisitos](docs/02-requisitos.md) · [Jornada e telas](docs/03-jornada-e-telas.md) · [Diagramas e DER](docs/04-diagramas-e-der.md) · [PDFs](docs/pdf/) · [Especificação](docs/ESPECIFICACAO.md) |
+| 💻 **Rodar o MVP** | [Como rodar](#como-rodar) — Python 3.10+, sem pacotes extras |
+
+[![Capa do vídeo — clique para assistir](video/capa.jpg)](video/bovinus-connect.mp4)
+
+<sub>Clique na imagem para abrir o vídeo.</sub>
+
+> **Sobre os dados:** todos os números das telas vêm de `seed.py` e são **simulados**. Nenhum número é resultado real da
+> Bovinu's, e o MVP não foi testado em operação no restaurante. Os ganhos descritos no site e nos slides são **hipóteses**.
+
+## O problema e a resposta
+
+| Dor apresentada | Como o Connect responde |
+| --- | --- |
+| **Mix do prato:** sabe-se o peso vendido, não o que o cliente queria encontrar | Intenção de visita com até 3 pratos de interesse; ranking do dia no dashboard (preferência declarada, não consumo) |
+| **Filas e tempo** sem medição no buffet, na churrasqueira e no caixa | Check-in, balança e caixa registram horários: tempo até a balança, permanência, previsto × real a cada 15 min |
+| **Limpeza:** não se sabe quando a mesa ficou livre | Mesa informada no check-out entra em "Mesas aguardando limpeza" na TV Salão por 45 min |
+| **Qualidade:** opiniões não são capturadas | Avaliação com NPS, notas de buffet, espera e atendimento; cada avaliação vale 1 ponto de fidelidade |
+
+## O que o MVP faz
+
+- **App do cliente:** planejar visita (dia, horário, pessoas, até 3 pratos, LGPD), código `BOV-XXXX` com QR,
+  **Minha visita** (status ao vivo, cadastro do espontâneo, visitas e pontos) e avaliação.
+- **Terminal da equipe:** Entrada, Balança (opcional) e Caixa (com mesa); cliente espontâneo com comprovante impresso;
+  leitura de QR pela câmera, leitor USB ou digitação.
+- **Gestão:** dashboard ao vivo, análise do período com insights por regras e CSV, TV Cozinha, TV Salão, cardápio do dia.
+- **Segurança:** login com papéis (gerente e atendente), senhas PBKDF2, bloqueio após 5 tentativas.
+- **Qualidade:** 21 testes automatizados (`testes.py`).
+
+| | | |
+| --- | --- | --- |
+| ![Planejar visita](prints/02-cliente-planejar.png) | ![Código da visita](prints/03-cliente-codigo.png) | ![Minha visita e fidelidade](prints/18-minha-visita-fidelidade.png) |
+| Planejar visita | Código + QR | Minha visita e fidelidade |
+| ![Terminal: espontâneo](prints/11-terminal-espontaneo.png) | ![Dashboard Hoje](prints/20-dashboard-hoje.png) | ![TV Salão](prints/27-tv-salao.png) |
+| Totem: espontâneo | Dashboard · Hoje | TV Salão |
+
+Todas as 27 capturas estão em [`prints/`](prints/).
+
+## Arquitetura
+
+![Arquitetura](docs/diagramas/arquitetura.svg)
+
+Um único processo Python (`app.py`, biblioteca padrão) serve as páginas e a API REST e grava no SQLite. Sem frameworks,
+sem CDN e sem serviços externos. O DER e o dicionário de dados estão em [docs/04-diagramas-e-der.md](docs/04-diagramas-e-der.md).
+
+## Estrutura do repositório
+
+```text
+bovinus-connect/
+├── app.py, schema.sql, seed.py, usuarios.py, testes.py   ← o MVP (backend Python + SQLite)
+├── *.html, estilo.css, comum.js, img/, vendor/           ← telas do MVP servidas pelo app.py
+├── index.html          ← só para o GitHub Pages: redireciona para site/ (o app.py não usa)
+├── site/               ← site institucional publicado (build estático, gerado a partir de site-src/)
+├── site-src/           ← código-fonte do site (React + Vite)
+├── video/              ← vídeo final (MP4) e capa
+├── video-src/          ← código-fonte do vídeo (Remotion)
+├── slides/             ← apresentação (PPTX editável, PDF e capa)
+├── prints/             ← capturas das telas do MVP (dados simulados)
+└── docs/               ← documentação (Markdown), PDFs e diagramas SVG
+```
+
+## Site institucional e GitHub Pages
+
+O site em `site/` é uma **demonstração estática**: mostra o projeto com capturas e simulações feitas no navegador.
+O sistema de verdade é o backend Python, que roda separadamente (`python app.py`).
+
+**Publicar:** no GitHub, abra **Settings → Pages**, em *Build and deployment* escolha **Deploy from a branch**, branch
+**`main`** e pasta **`/ (root)`**, e salve. Em 1–2 minutos o site fica em `https://jnnkoc.github.io/bovinus-connect/`
+(o `index.html` da raiz leva para `site/`).
+
+**Editar o site** (precisa de Node.js 18+):
+
+```bash
+cd site-src
+npm install
+npm run dev      # pré-visualização em http://localhost:5173
+npm run build    # gera ../site (é essa pasta que vai para o GitHub)
+```
+
+**Editar o vídeo** (Remotion):
+
+```bash
+cd video-src
+npm install
+npm run studio   # editor visual no navegador
+npm run render   # gera ../video/bovinus-connect.mp4
+```
+
+## Créditos e licenças
+
+- Trilha do vídeo: faixa de paulyudin no Pixabay (ID 574011), sob a licença de conteúdo do Pixabay.
+- Bibliotecas do MVP em `vendor/` (ver `vendor/LEIAME.md`). Site: React, Motion e fontes Inter e Sora (OFL), empacotados
+  localmente. Vídeo: Remotion (licença gratuita para uso individual e equipes pequenas).
+- Projeto acadêmico. Não é material oficial da Bovinu's Grill & Beer; marca e logotipo pertencem ao restaurante.
+
+---
+
+# Detalhes técnicos do MVP
 
 ## Como rodar
 
