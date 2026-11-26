@@ -89,23 +89,6 @@ npm install
 npm run dev      # pré-visualização em http://localhost:5173
 npm run build    # gera ../site (é essa pasta que vai para o GitHub)
 ```
-
-**Editar o vídeo** (Remotion):
-
-```bash
-cd video-src
-npm install
-npm run studio   # editor visual no navegador
-npm run render   # gera ../video/bovinus-connect.mp4
-```
-
-## Créditos e licenças
-
-- Trilha do vídeo: faixa de paulyudin no Pixabay (ID 574011), sob a licença de conteúdo do Pixabay.
-- Bibliotecas do MVP em `vendor/` (ver `vendor/LEIAME.md`). Site: React, Motion e fontes Inter e Sora (OFL), empacotados
-  localmente. Vídeo: Remotion (licença gratuita para uso individual e equipes pequenas).
-- Projeto acadêmico. Não é material oficial da Bovinu's Grill & Beer; marca e logotipo pertencem ao restaurante.
-
 ---
 
 # Detalhes técnicos do MVP
@@ -260,15 +243,6 @@ check_in_em, buffet_concluido_em, check_out_em, saida_estimada, mesa, avaliada, 
 Definições em `docs/ESPECIFICACAO.md` ("Definição dos indicadores"): conversão da intenção (só planejados, após previsto + 30 min),
 planejados × espontâneos, no salão agora, permanência (só check-out real), tempo até a balança, NPS, satisfação por tema,
 recorrência por celular, chegadas previstas (pessoas) × reais (check-ins) por 15 min e pratos desejados.
-
-**TVs** (sempre hoje; com `DEMO_AGORA`, dados do seed medidos pelo agora simulado e registros ao vivo pelo relógio real):
-
-- **Pessoas na casa**: soma de pessoas das visitas com check-in e sem check-out (espontâneo conta 1).
-- **Previstas na próxima hora**: pessoas das intenções com horário entre agora e agora + 1 h que ainda não fizeram check-in.
-- **Prato mais desejado**: topo do ranking de pratos marcados nas intenções do dia.
-- **Até a balança**: média de check-in → buffet concluído hoje. **Permanência**: média de check-out − check-in hoje
-  (sem saídas estimadas). Visita em curso há mais tempo que essa média ganha ⚠ "acima da média".
-- **Mesas aguardando limpeza**: último check-out (não estimado) de cada mesa nos últimos `JANELA_LIMPEZA_MIN` minutos.
 
 ## Segurança e privacidade (limites do MVP)
 
