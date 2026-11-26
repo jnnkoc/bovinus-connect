@@ -42,7 +42,7 @@ Uma única versão web, mobile-first (não fazer site e app separados).
 
 ### 2. Terminal (`terminal.html`, rota `/terminal`) — ref. `terminal.png`
 Uma tela com **modo** selecionável no topo. **O sistema registra automaticamente a próxima etapa** da visita: ninguém escolhe a etapa. Fluxo: ler/digitar código → confirmação por 2 segundos → volta ao início.
-- **Modo Entrada (totem do cliente)**: "Usar código do app" (QR ou digitar) → check-in. "Sou cliente espontâneo" → cria visita e mostra o código **grande** com o aviso "Guarde este código para a saída e para avaliar".
+- **Modo Entrada (totem do cliente)**: "Usar código do app" (QR ou digitar) → check-in. "Sou cliente espontâneo" → cria visita e mostra o código **grande** com o aviso "Guarde este código para a saída e para avaliar". Intenção marcada para **outro dia** não faz check-in: mostra "Esta visita está marcada para DD/MM" e o botão "Registrar como espontâneo".
 - **Modo Caixa (equipe)**: ler/digitar código → check-out. Campo opcional de nº da mesa.
 - **Modo Balança (opcional)**: ler/digitar código → buffet concluído.
 O buffet é opcional: o check-out funciona sem ele.
@@ -62,7 +62,7 @@ Menu lateral apenas com: Dashboard, Cardápio do dia, Terminal (e Mesas, se exis
 - **Gráfico principal: chegadas previstas (intenções) × chegadas reais por 15 min** (barras reais + linha prevista).
 - Próximas chegadas previstas (ex.: "12h30–13h: 23 pessoas").
 - Ranking de pratos mais desejados hoje.
-- Funil **só dos planejados**: intenção → check-in → check-out → avaliação. Espontâneos aparecem à parte.
+- Funil **só dos planejados**: intenção → check-in → check-out → avaliação. Espontâneos aparecem à parte. A base são **todas** as intenções do dia, inclusive as que ainda vão chegar; abaixo do funil aparece a composição (já chegaram · ainda por chegar · não compareceram).
 - Botão "Modo TV" (opcional): tela cheia com 3 números grandes — clientes no salão, chegadas previstas na próxima meia hora, prato mais desejado.
 
 **Aba Análise (período)**
@@ -119,6 +119,7 @@ Bordô/vermelho escuro como cor principal, fundo creme, destaque âmbar/dourado 
 - Toda mudança no banco vai no `schema.sql` e precisa funcionar num banco novo (apagar `bovinus.db` para testar).
 - Telas mobile-first. Ações da equipe com no máximo **um toque ou uma leitura**.
 - Dados simulados sempre identificados na interface. Datas simuladas recentes (relativas a hoje).
+- `DEMO_AGORA` (padrão 12:40; topo do `seed.py` e variável de ambiente do `app.py`): fora do almoço (11h–15h), com dados simulados, é o "agora" da aba Hoje; o seed gera hoje entre 11h e esse horário, com intenções futuras até 14h45.
 - Textos em português do Brasil.
 - Depois de cada etapa, diga exatamente como testar.
 - Nunca inventar números de negócio da Bovinu's; parâmetros da simulação ficam no topo do `seed.py`, fáceis de ajustar.

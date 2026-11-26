@@ -87,6 +87,16 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
     <div class="progresso"><span id="res-barra"></span></div>
   </section>
 
+  <!-- intenção de outro dia: não faz check-in -->
+  <section class="painel" id="tela-outro-dia" hidden aria-live="assertive" style="border-top:10px solid var(--ambar)">
+    <div class="icone-grande" aria-hidden="true">📅</div>
+    <h1 id="outro-dia-titulo"></h1>
+    <p class="sub">O check-in com este código só pode ser feito no dia marcado.<br>Para almoçar hoje, registre como cliente espontâneo.</p>
+    <button class="btn btn-primario btn-enorme btn-bloco" id="outro-dia-espontaneo">🙋 Registrar como espontâneo</button>
+    <button class="btn btn-contorno btn-grande btn-bloco" style="margin-top:.8rem" id="outro-dia-cancelar">Cancelar</button>
+    <p class="mudo pequeno" style="margin-top:.8rem">Volta ao início em <span id="outro-dia-tempo">15</span> s</p>
+  </section>
+
   <!-- espontâneo: código gerado -->
   <section class="painel" id="tela-espontaneo" hidden aria-live="assertive">
     <div class="icone-grande" style="color:var(--ok)">✓</div>
@@ -132,7 +142,7 @@ const mesa = document.getElementById('mesa');
 
 function tela(nome) {
   if (nome !== 'camera') pararCamera();
-  ['leitura', 'resultado', 'espontaneo', 'camera'].forEach(t => document.getElementById('tela-' + t).hidden = t !== nome);
+  ['leitura', 'resultado', 'espontaneo', 'camera', 'outro-dia'].forEach(t => document.getElementById('tela-' + t).hidden = t !== nome);
 }
 
 // ---------- leitura de QR pela câmera ----------
@@ -252,9 +262,31 @@ async function registrar() {
     if (r.repetido) mostrarResultado('aviso', '!', TITULOS_REP[r.etapa], 'Nada foi alterado.', detalhes);
     else mostrarResultado('ok', '✓', TITULOS_OK[r.etapa], r.mensagem, detalhes);
   } catch (e) {
+    if (e.dados?.outro_dia) return mostrarOutroDia(e.message);
     mostrarResultado('erro', '✕', e.status === 404 ? 'Código não encontrado' : 'Não foi possível registrar', e.message, [['Código', codigo]], 3000);
   }
 }
+
+// Intenção marcada para outro dia: oferece registrar como espontâneo (com volta automática).
+function contagemRegressiva(idSpan, segundos) {
+  let resta = segundos;
+  document.getElementById(idSpan).textContent = resta;
+  timerVolta = setInterval(() => {
+    resta -= 1;
+    document.getElementById(idSpan).textContent = resta;
+    if (resta <= 0) voltarInicio();
+  }, 1000);
+}
+
+function mostrarOutroDia(mensagem) {
+  document.getElementById('outro-dia-titulo').textContent = mensagem;
+  tela('outro-dia');
+  ocupado = false;
+  contagemRegressiva('outro-dia-tempo', 15);
+  document.getElementById('outro-dia-espontaneo').focus();
+}
+document.getElementById('outro-dia-espontaneo').onclick = () => { clearInterval(timerVolta); criarEspontaneo(); };
+document.getElementById('outro-dia-cancelar').onclick = voltarInicio;
 
 document.getElementById('form-codigo').addEventListener('submit', e => { e.preventDefault(); registrar(); });
 // Leitor de QR/código de barras digita e envia Enter; ao completar BOV-XXXX também envia sozinho.
@@ -265,7 +297,7 @@ campo.addEventListener('input', () => {
   if (normalizarCodigo(campo.value) && (limpo.startsWith('BOV') ? limpo.length === 7 : limpo.length === 4)) registrar();
 });
 
-document.getElementById('btn-espontaneo').onclick = async () => {
+async function criarEspontaneo() {
   if (ocupado) return;
   ocupado = true;
   try {
@@ -273,17 +305,12 @@ document.getElementById('btn-espontaneo').onclick = async () => {
     document.getElementById('esp-codigo').textContent = v.codigo;
     document.getElementById('esp-qr').innerHTML = qrSvg(v.codigo);
     tela('espontaneo');
-    let resta = 20;
-    document.getElementById('esp-tempo').textContent = resta;
-    timerVolta = setInterval(() => {
-      resta -= 1;
-      document.getElementById('esp-tempo').textContent = resta;
-      if (resta <= 0) voltarInicio();
-    }, 1000);
+    contagemRegressiva('esp-tempo', 20);
   } catch (e) {
     mostrarResultado('erro', '✕', 'Não foi possível abrir a visita', e.message, [], 3000);
   }
-};
+}
+document.getElementById('btn-espontaneo').onclick = criarEspontaneo;
 document.getElementById('esp-pronto').onclick = voltarInicio;
 
 function relogio() { document.getElementById('relogio').textContent = fmt.horaSeg(new Date().toISOString()); }

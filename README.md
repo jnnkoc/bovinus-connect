@@ -20,7 +20,18 @@ se o banco não existir, abre o dashboard e sobe o servidor.
 Abra http://127.0.0.1:8000. O servidor também aceita conexões da rede local e mostra, ao iniciar, o endereço para abrir
 **no celular na mesma rede Wi-Fi** (o Windows pode pedir permissão no firewall na primeira vez).
 Variáveis opcionais: `BOVINUS_PORTA` (padrão 8000), `BOVINUS_HOST` (padrão `0.0.0.0`; use `127.0.0.1` para só este computador)
-e `BOVINUS_BANCO` (caminho do arquivo SQLite).
+`BOVINUS_BANCO` (caminho do arquivo SQLite) e `DEMO_AGORA` (ver abaixo).
+
+### Horário de demonstração (`DEMO_AGORA`)
+
+Para a apresentação funcionar a qualquer hora, há um "agora" de demonstração (padrão **12:40**):
+
+- `py seed.py` gera o almoço de hoje só entre 11h e `DEMO_AGORA`, com intenções futuras até 14h45.
+- Com dados simulados e **fora do horário de almoço (11h–15h)**, a aba **Hoje** do dashboard usa `DEMO_AGORA` como
+  "agora" (selo **🕐 Agora simulado** no topo). Dentro do almoço vale o horário real (no seed e no app).
+- Mude no topo do `seed.py` ou pela variável de ambiente, que vale para os dois:
+  `$env:DEMO_AGORA="13:15"` (PowerShell) ou `set DEMO_AGORA=13:15` (cmd), depois `py seed.py` e `py app.py`.
+  O seed grava o valor no banco; a variável de ambiente tem prioridade. `DEMO_AGORA=off` desliga.
 
 ## Login da equipe
 
@@ -121,7 +132,7 @@ O código aceita `BOV-ABCD`, `bov-abcd` ou só `ABCD`.
 **Visita** = `{codigo, origem, status: "aguardando" | "em_andamento" | "encerrada", horario_previsto, pessoas, pratos:[nomes],
 check_in_em, buffet_concluido_em, check_out_em, saida_estimada, mesa, avaliada, visitas_cliente}`.
 
-**`/proxima`**: em `entrada`, faz o check-in; em `balanca`, registra o buffet (exige check-in); em `caixa`, registra o check-out
+**`/proxima`**: em `entrada`, faz o check-in (intenção marcada para outro dia → 409 com `outro_dia: true` e `"Esta visita está marcada para DD/MM."`; o terminal oferece **Registrar como espontâneo**); em `balanca`, registra o buffet (exige check-in); em `caixa`, registra o check-out
 (exige check-in; substitui uma saída estimada). Repetir uma etapa não altera nada e devolve `repetido: true` com o horário original.
 
 ## Indicadores

@@ -3,6 +3,7 @@
 Nenhum número aqui é dado real da Bovinu's: são parâmetros de simulação, ajustáveis abaixo.
 Rodar:  py seed.py   (Windows)   |   python3 seed.py
 """
+import os
 import random
 import sys
 from collections import Counter
@@ -36,9 +37,11 @@ FRACAO_AVALIACOES = 0.25        # visitas encerradas que avaliam
 PESSOAS_PESOS = {1: 35, 2: 35, 3: 15, 4: 10, 5: 3, 6: 2}
 PRATOS_POR_INTENCAO_PESOS = {1: 30, 2: 35, 3: 35}  # máximo 3 pratos
 VIES_TEMA = {"buffet": 0.1, "espera": -0.5, "atendimento": 0.3}  # deslocamento das notas 1–5 por tema
-# Se agora estiver fora do almoço, a simulação de HOJE é deslocada como se fossem 12h45,
-# para o dashboard ao vivo ter visitas em andamento e intenções futuras.
-HORA_SIMULADA_FORA_DO_ALMOCO = time(12, 45)
+# "Agora" da demonstração. Fora do horário de almoço (11h–15h), o almoço de HOJE é gerado só entre 11h e
+# DEMO_AGORA, com intenções futuras até 14h45; o app.py usa o mesmo horário como "agora" na aba Hoje
+# (fica gravado no banco; a variável de ambiente DEMO_AGORA tem prioridade). Dentro do almoço vale o horário real.
+# "off" desliga. Exemplo:  set DEMO_AGORA=13:15  (PowerShell: $env:DEMO_AGORA="13:15")
+DEMO_AGORA = os.environ.get("DEMO_AGORA", app.DEMO_AGORA_PADRAO)
 # Usuários de DEMONSTRAÇÃO para as telas da equipe. Só para a apresentação: troque antes de usar de verdade.
 USUARIOS_DEMO = [
     ("gerente", "Gerente (demo)", "gerente", "bovinus-demo"),
@@ -132,19 +135,17 @@ def main():
     if app.BANCO.exists():
         app.BANCO.unlink()
     app.preparar_banco(criar_usuarios=False)
+    hora_demo = app.ler_hora_demo(DEMO_AGORA)  # ValueError se o formato estiver errado
     agora_real = app.agora()
     hoje = agora_real.astimezone(app.SP).date()
-    hora_local = agora_real.astimezone(app.SP).time()
-    if ALMOCO_INICIO <= hora_local <= ALMOCO_FIM:
-        deslocamento = timedelta(0)
-    else:
-        deslocamento = (agora_real - datetime.combine(hoje, HORA_SIMULADA_FORA_DO_ALMOCO, app.SP))
-        # mantém o almoço deslocado dentro do mesmo dia
-        deslocamento = max(timedelta(hours=-11), min(timedelta(hours=9), deslocamento))
     contagem = Counter()
 
     with closing(app.conectar()) as banco, banco:
         banco.execute("INSERT INTO parametro (chave, valor) VALUES ('dados_simulados', '1')")
+        banco.execute("INSERT INTO parametro (chave, valor) VALUES ('demo_agora', ?)",
+                      (hora_demo.strftime("%H:%M") if hora_demo else "off",))
+        # Mesmo 'agora' que o app.py vai usar: hoje às DEMO_AGORA (fora do almoço) ou o horário real.
+        corte_hoje, demo_ativo = app.agora_referencia(banco)
         for login, nome, papel, senha in USUARIOS_DEMO:
             app.criar_usuario(banco, login, nome, papel, senha)
         ids_pratos = {}
@@ -198,9 +199,7 @@ def main():
             montar_cardapio(proximo)
 
         for dia in dias_simulados(hoje):
-            e_hoje = dia == hoje
-            ajuste = deslocamento if e_hoje else timedelta(0)
-            corte = agora_real  # nada acontece depois de agora
+            corte = corte_hoje if dia == hoje else agora_real  # nada acontece depois do 'agora'
             cardapio = montar_cardapio(dia)
 
             total = round(VISITAS_POR_DIA * (1 + rnd.uniform(-VARIACAO_DIARIA, VARIACAO_DIARIA)))
@@ -212,14 +211,14 @@ def main():
             jornadas = [("planejado", i) for i in range(n_intencoes)] + \
                        [("espontaneo", i) for i in range(total - planejados)]
             for origem, indice in jornadas:
-                chegada = momento_chegada(dia) + ajuste
+                chegada = momento_chegada(dia)  # entre 11h e 14h45
                 intencao_id = cli = None
                 codigo = novo_codigo()
                 if origem == "planejado":
                     previsto = app.faixa_de(chegada)  # cliente escolhe horário em múltiplos de 15 min
                     criada = previsto - timedelta(minutes=rnd.randint(30, 60 * 30))
-                    if criada > corte:
-                        continue
+                    # intenção futura de hoje: foi criada antes do 'agora'
+                    criada = min(criada, corte - timedelta(minutes=rnd.randint(5, 180)))
                     if indice < len(hoje_recorrentes):
                         nome, cel = hoje_recorrentes[indice]
                     else:
@@ -293,9 +292,11 @@ def main():
 
     print(f"Banco recriado com DADOS SIMULADOS: {app.BANCO.name}")
     print(f"Dias: {', '.join(d.strftime('%d/%m') for d in dias_simulados(hoje))}")
-    if deslocamento:
-        print(f"Agora está fora do almoço: o dia de hoje foi simulado como se fossem "
-              f"{HORA_SIMULADA_FORA_DO_ALMOCO.strftime('%Hh%M')} (horários deslocados).")
+    if demo_ativo:
+        print(f"Fora do almoço: hoje foi gerado entre 11h e {app.hhmm(corte_hoje)} (DEMO_AGORA), "
+              f"com intenções futuras até 14h45. A aba Hoje do dashboard usa {app.hhmm(corte_hoje)} como 'agora'.")
+    else:
+        print(f"Hoje foi gerado até o horário real ({app.hhmm(corte_hoje)}).")
     for chave, valor in sorted(contagem.items()):
         print(f"  {chave}: {valor}")
     print("Usuários de DEMONSTRAÇÃO (troque com: py usuarios.py senha <login>):")

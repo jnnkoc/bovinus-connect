@@ -61,6 +61,8 @@
       <div><h1>Área gerencial</h1><div class="sub">Jornada do cliente no almoço · Unidade Augusta</div></div>
       <div class="acoes">
         <span class="selo selo-simulado" id="selo-simulado" hidden title="Dados gerados por seed.py para demonstração">⚠ Dados simulados</span>
+        <span class="selo" id="selo-demo" hidden style="background:var(--creme);color:var(--bordo)"
+              title="Fora do horário de almoço, a aba Hoje usa o horário DEMO_AGORA como 'agora'"></span>
         <input type="date" id="data" aria-label="Data">
         <span class="periodo" id="periodo" hidden>
           <button data-dias="7">7 dias</button> <button data-dias="14">14 dias</button> <button data-dias="30">30 dias</button>
@@ -99,8 +101,10 @@
             <div class="barras-h" id="pratos"></div>
           </div>
           <div class="cartao">
-            <div class="cartao-cabeca"><h2>Funil dos planejados</h2><span class="mudo pequeno">% sobre as intenções do dia</span></div>
+            <div class="cartao-cabeca"><h2>Funil dos planejados</h2>
+              <span class="mudo pequeno">% sobre <strong>todas</strong> as intenções do dia, inclusive as que ainda vão chegar</span></div>
             <div class="barras-h" id="funil"></div>
+            <div id="situacao-intencoes" style="margin-top:.9rem"></div>
             <h3 style="margin-top:1.3rem">Espontâneos (à parte)</h3>
             <div class="barras-h" id="funil-esp"></div>
           </div>
@@ -329,9 +333,27 @@ async function carregarHoje() {
   })), { vazio: 'Sem cardápio cadastrado para este dia.' });
 
   const base = d.funil_planejados[0].valor;
-  barrasH(document.getElementById('funil'), d.funil_planejados.map(f => ({
-    rotulo: f.etapa, valor: f.valor, dica: base ? `${Math.round(f.valor / base * 100)}% das intenções` : '',
+  barrasH(document.getElementById('funil'), d.funil_planejados.map((f, i) => ({
+    rotulo: i === 0 ? 'Intenções (todas)' : f.etapa, valor: f.valor,
+    dica: base ? `${Math.round(f.valor / base * 100)}% de todas as intenções do dia` : '',
   })), { max: Math.max(1, base), formato: v => `${v} <span class="mudo pequeno">${base ? Math.round(v / base * 100) + '%' : ''}</span>` });
+  // Composição da base: quem já chegou, quem ainda pode chegar e quem não veio.
+  const si = d.intencoes_situacao;
+  const partes = [
+    ['Já chegaram', si.chegaram, COR.planejado],
+    ['Ainda por chegar', si.a_chegar, COR.espontaneo],
+    ['Não compareceram (+30 min)', si.nao_compareceram, COR.neutro],
+  ];
+  document.getElementById('situacao-intencoes').innerHTML = si.total ? `
+    <div class="pequeno" style="font-weight:650;margin-bottom:.2rem">Das ${si.total} intenções do dia:</div>
+    <div class="nps-barra" role="img" aria-label="${partes.map(([r, v]) => `${r}: ${v}`).join(', ')}">
+      ${partes.map(([r, v, c]) => v ? `<div style="flex:${v};background:${c}" title="${r}: ${v}"></div>` : '').join('')}</div>
+    <div class="legenda">${partes.map(([r, v, c]) => `<span><i style="background:${c}"></i>${r}: <strong>${v}</strong></span>`).join('')}</div>
+    ${si.a_chegar ? `<p class="mudo pequeno" style="margin:0">Os % do funil sobem conforme as ${si.a_chegar} intenções pendentes chegarem.</p>` : ''}`
+    : '';
+  const seloDemo = document.getElementById('selo-demo');
+  seloDemo.hidden = !d.agora_simulado;
+  if (d.agora_simulado) seloDemo.textContent = `🕐 Agora simulado: ${fmt.hora(d.agora_simulado)}`;
   const e = d.espontaneos;
   barrasH(document.getElementById('funil-esp'), [
     { rotulo: 'Check-in', valor: e.visitas }, { rotulo: 'Check-out', valor: e.check_out }, { rotulo: 'Avaliação', valor: e.avaliacoes },
@@ -434,6 +456,7 @@ function trocarAba(nova) {
   document.getElementById('painel-analise').hidden = aba !== 'analise';
   document.getElementById('periodo').hidden = aba !== 'analise';
   document.getElementById('btn-tv').hidden = aba !== 'hoje';
+  if (aba !== 'hoje') document.getElementById('selo-demo').hidden = true;
   atualizar();
 }
 document.getElementById('aba-hoje').onclick = () => trocarAba('hoje');

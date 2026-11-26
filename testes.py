@@ -8,6 +8,7 @@ import tempfile
 import threading
 import unittest
 import urllib.error
+from unittest import mock
 import urllib.request
 from contextlib import closing
 from datetime import datetime, timedelta
@@ -43,8 +44,8 @@ class TesteBovinus(unittest.TestCase):
         threading.Thread(target=cls.servidor.serve_forever, daemon=True).start()
         cls.gerente = cls.entrar("gerente", SENHA_GERENTE)
         cls.atendente = cls.entrar("atendente", SENHA_ATENDENTE)
-        # cardápio para daqui a 1 h (o dia pode ser hoje ou amanhã)
-        cls.previsto = (app.agora() + timedelta(hours=1)).astimezone(app.SP)
+        # horário previsto de hoje (10 min atrás: ainda dentro da tolerância de 30 min, então "a chegar")
+        cls.previsto = (app.agora() - timedelta(minutes=10)).astimezone(app.SP)
         cls.dia = cls.previsto.date().isoformat()
         cls.pratos = []
         for nome, cat in (("Picanha", "churrasco"), ("Arroz", "acompanhamento"), ("Salada verde", "salada"), ("Pudim", "sobremesa")):
@@ -176,6 +177,39 @@ class TesteBovinus(unittest.TestCase):
         passado = (app.agora() - timedelta(hours=2)).isoformat()
         self.assertEqual(self.chamar("POST", "/api/intencoes", {"horario_previsto": passado, "nome": "A B", "celular": "11988887777", "aceite_lgpd": True})[0], 400)
 
+    def test_entrada_com_intencao_de_outro_dia(self):
+        amanha = (app.agora() + timedelta(days=1)).astimezone(app.SP).replace(hour=12, minute=30)
+        s, v = self.chamar("POST", "/api/intencoes", {"horario_previsto": amanha.isoformat(), "pratos": [],
+                                                      "nome": "Cliente Amanhã", "celular": "11955556666", "aceite_lgpd": True})
+        self.assertEqual(s, 201)
+        s, r = self.chamar("POST", f"/api/jornadas/{v['codigo']}/proxima", {"modo": "entrada"}, self.atendente)
+        self.assertEqual(s, 409)
+        self.assertTrue(r["outro_dia"])
+        self.assertEqual(r["erro"], f"Esta visita está marcada para {amanha.strftime('%d/%m')}.")
+        self.assertEqual(self.chamar("GET", f"/api/jornadas/{v['codigo']}")[1]["status"], "aguardando")  # nada registrado
+        self.assertEqual(self.chamar("POST", "/api/visitas", {}, self.atendente)[0], 201)  # "Registrar como espontâneo"
+
+    def test_agora_de_demonstracao(self):
+        hoje = app.agora().astimezone(app.SP).date()
+        noite = datetime.combine(hoje, datetime.min.time(), app.SP).replace(hour=21)
+        almoco = noite.replace(hour=13, minute=5)
+        with closing(app.conectar()) as banco:
+            try:
+                with mock.patch.object(app, "agora", return_value=noite):
+                    self.assertEqual(app.agora_referencia(banco), (noite, False))  # banco sem dados simulados
+                    banco.execute("INSERT INTO parametro VALUES ('dados_simulados', '1')")
+                    self.assertEqual(app.agora_referencia(banco), (noite.replace(hour=12, minute=40), True))
+                    with mock.patch.dict(app.os.environ, {"DEMO_AGORA": "13:15"}):
+                        self.assertEqual(app.agora_referencia(banco)[0], noite.replace(hour=13, minute=15))
+                    with mock.patch.dict(app.os.environ, {"DEMO_AGORA": "off"}):
+                        self.assertEqual(app.agora_referencia(banco), (noite, False))
+                with mock.patch.object(app, "agora", return_value=almoco):
+                    self.assertEqual(app.agora_referencia(banco), (almoco, False))  # no almoço vale o real
+            finally:
+                banco.rollback()
+        with self.assertRaises(ValueError):
+            app.ler_hora_demo("25h")
+
     def test_codigos(self):
         self.assertEqual(self.chamar("GET", "/api/jornadas/BOV-0O1I")[0], 400)
         self.assertEqual(self.chamar("GET", "/api/jornadas/BOV-ZZZZ")[0], 404)
@@ -205,6 +239,10 @@ class TesteBovinus(unittest.TestCase):
         self.assertEqual(s, 200)
         self.assertGreaterEqual(h["funil_planejados"][0]["valor"], 1)
         self.assertTrue(any(p["desejos"] for p in h["pratos"]))
+        si = h["intencoes_situacao"]
+        self.assertEqual(si["chegaram"] + si["a_chegar"] + si["nao_compareceram"], si["total"])
+        self.assertEqual(si["total"], h["funil_planejados"][0]["valor"])
+        self.assertGreaterEqual(si["a_chegar"], 1)  # previsto há 10 min, sem check-in: ainda por chegar
         s, a = self.chamar("GET", "/api/dashboard/analise", cookie=self.gerente)
         self.assertEqual(s, 200)
         self.assertTrue(a["insights"])

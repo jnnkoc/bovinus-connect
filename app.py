@@ -33,6 +33,8 @@ CATEGORIAS = ("churrasco", "acompanhamento", "salada", "sobremesa")
 MAX_PRATOS_INTENCAO = 3
 LIMITE_VISITA = timedelta(hours=3)        # visita aberta além disso é fechada com saída estimada
 TOLERANCIA_CHEGADA = timedelta(minutes=30)  # intenção sem check-in após previsto + 30 min = não convertida
+ALMOCO = (time(11, 0), time(15, 0))
+DEMO_AGORA_PADRAO = "12:40"  # sobrescreva com a variável de ambiente DEMO_AGORA (ou DEMO_AGORA=off)
 FAIXA = timedelta(minutes=15)
 
 PAGINAS = {
@@ -58,8 +60,9 @@ PASTAS_ESTATICAS = ("img", "vendor")
 
 
 class ErroAPI(Exception):
-    def __init__(self, status, mensagem):
+    def __init__(self, status, mensagem, **extra):
         self.status = status
+        self.extra = extra  # campos a mais na resposta de erro
         super().__init__(mensagem)
 
 
@@ -252,7 +255,7 @@ def papeis_exigidos(metodo, partes):
 
 def fechar_visitas_antigas(banco):
     """Visita sem check-out após 3 h é fechada com saida_estimada = 1."""
-    limite = iso(agora() - LIMITE_VISITA)
+    limite = iso(agora_referencia(banco)[0] - LIMITE_VISITA)
     abertas = banco.execute(
         "SELECT id, check_in_em FROM visita WHERE check_out_em IS NULL AND check_in_em < ?", (limite,)
     ).fetchall()
@@ -286,9 +289,45 @@ def normalizar_codigo(texto):
     return codigo
 
 
+def parametro(banco, chave):
+    linha = banco.execute("SELECT valor FROM parametro WHERE chave = ?", (chave,)).fetchone()
+    return linha["valor"] if linha else None
+
+
 def simulado(banco):
-    linha = banco.execute("SELECT valor FROM parametro WHERE chave = 'dados_simulados'").fetchone()
-    return bool(linha and linha["valor"] == "1")
+    return parametro(banco, "dados_simulados") == "1"
+
+
+def ler_hora_demo(texto):
+    """'12:40' → time(12, 40). 'off', 'nao' ou vazio → None (modo demonstração desligado)."""
+    texto = (texto or "").strip().lower()
+    if texto in ("", "off", "nao", "não", "0"):
+        return None
+    try:
+        return time.fromisoformat(texto)
+    except ValueError:
+        raise ValueError(f"DEMO_AGORA inválido: {texto!r}. Use HH:MM, por exemplo 12:40, ou 'off'.")
+
+
+def hora_demo(banco):
+    """Horário de demonstração: variável DEMO_AGORA > valor gravado pelo seed.py > 12:40."""
+    if "DEMO_AGORA" in os.environ:
+        return ler_hora_demo(os.environ["DEMO_AGORA"])
+    return ler_hora_demo(parametro(banco, "demo_agora") or DEMO_AGORA_PADRAO)
+
+
+def agora_referencia(banco):
+    """O 'agora' dos indicadores. Com dados simulados e fora do almoço (11h–15h),
+    vira hoje às DEMO_AGORA, para a aba Hoje ter visitas em andamento e chegadas pela frente.
+    Devolve (momento, simulado?)."""
+    real = agora()
+    local = real.astimezone(SP)
+    if ALMOCO[0] <= local.time() < ALMOCO[1] or not simulado(banco):
+        return real, False
+    demo = hora_demo(banco)
+    if demo is None:
+        return real, False
+    return datetime.combine(local.date(), demo, SP), True
 
 
 # ---------------------------------------------------------------- cardápio
@@ -520,6 +559,10 @@ def registrar_proxima(banco, codigo, dados):
     if modo == "entrada":
         if j["visita_id"]:
             return resposta("check-in", "check_in_em", True, "Check-in já registrado.")
+        dia_marcado = dia_local(j["horario_previsto"])
+        if dia_marcado != hoje_local():
+            raise ErroAPI(409, f"Esta visita está marcada para {dia_marcado.strftime('%d/%m')}.",
+                          outro_dia=True, data_prevista=dia_marcado.isoformat())
         banco.execute(
             """INSERT INTO visita (codigo, origem, intencao_id, cliente_id, check_in_em)
                VALUES (?, 'planejado', ?, ?, ?)""",
@@ -642,8 +685,8 @@ def pratos_desejados(banco, dia):
 
 
 def painel_hoje(banco, dia):
-    momento = agora()
-    hoje = hoje_local()
+    momento, demo = agora_referencia(banco)
+    hoje = momento.astimezone(SP).date()
     fim_dia = inicio_dia(dia + timedelta(days=1))
     referencia = min(momento, fim_dia)
     visitas, intencoes = carregar_periodo(banco, dia, dia)
@@ -687,9 +730,13 @@ def painel_hoje(banco, dia):
     )
 
     pratos = pratos_desejados(banco, dia)
+    # Situação das intenções sem check-in: ainda dentro do prazo (previsto + 30 min) ou vencidas.
+    sem_visita = [i for i in intencoes if not i["visita_id"]]
+    a_chegar = sum(1 for i in sem_visita if ler_iso(i["horario_previsto"]) + TOLERANCIA_CHEGADA > referencia)
     return {
         "data": dia.isoformat(),
-        "atualizado_em": iso(momento),
+        "atualizado_em": iso(agora()),
+        "agora_simulado": iso(momento) if demo else None,
         "ao_vivo": dia == hoje,
         "simulado": simulado(banco),
         "cartoes": {
@@ -714,6 +761,12 @@ def painel_hoje(banco, dia):
             {"etapa": "Check-out", "valor": sum(1 for i in intencoes if i["check_out_em"])},
             {"etapa": "Avaliação", "valor": sum(1 for i in intencoes if i["avaliada"])},
         ],
+        "intencoes_situacao": {
+            "total": len(intencoes),
+            "chegaram": len(intencoes) - len(sem_visita),
+            "a_chegar": a_chegar,                       # previsto + 30 min ainda não passou
+            "nao_compareceram": len(sem_visita) - a_chegar,
+        },
         "espontaneos": {
             "visitas": len(espontaneos),
             "check_out": sum(1 for v in espontaneos if v["check_out_em"]),
@@ -727,7 +780,7 @@ def painel_analise(banco, inicio, fim):
         raise ErroAPI(400, "A data final deve ser depois da inicial.")
     if (fim - inicio).days > 92:
         raise ErroAPI(400, "Escolha um período de até 92 dias.")
-    momento = agora()
+    momento, _ = agora_referencia(banco)
     visitas, intencoes = carregar_periodo(banco, inicio, fim)
 
     dias = []
@@ -811,7 +864,7 @@ def painel_analise(banco, inicio, fim):
         "saidas_estimadas": sum(1 for v in visitas if v["saida_estimada"]),
     }
     return {
-        "inicio": inicio.isoformat(), "fim": fim.isoformat(), "atualizado_em": iso(momento),
+        "inicio": inicio.isoformat(), "fim": fim.isoformat(), "atualizado_em": iso(agora()),
         "simulado": simulado(banco),
         "resumo": resumo, "dias": dias,
         "pratos_pouco_desejados": pouco_desejados,
@@ -1019,7 +1072,7 @@ class Servidor(BaseHTTPRequestHandler):
                                    {"Content-Disposition": f'attachment; filename="{nome}"'})
             self.responder(*resultado)
         except ErroAPI as erro:
-            self.responder(erro.status, {"erro": str(erro)})
+            self.responder(erro.status, {"erro": str(erro), **erro.extra})
         except sqlite3.IntegrityError as erro:
             self.log_error("%s", erro)
             self.responder(409, {"erro": "Os dados não puderam ser gravados (conflito)."})
@@ -1094,6 +1147,10 @@ def endereco_rede():
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
+    try:
+        ler_hora_demo(os.environ.get("DEMO_AGORA", DEMO_AGORA_PADRAO))
+    except ValueError as erro:
+        sys.exit(str(erro))
     preparar_banco()
     host = os.environ.get("BOVINUS_HOST", "0.0.0.0")
     porta = int(os.environ.get("BOVINUS_PORTA", "8000"))
@@ -1104,6 +1161,11 @@ if __name__ == "__main__":
         if host == "0.0.0.0" and ip:
             print(f"  No celular (mesma rede Wi-Fi):  http://{ip}:{porta}", flush=True)
         print("  Cliente: /  e  /avaliar   ·   Equipe (com login): /terminal  /cardapio  /dashboard", flush=True)
+        with closing(conectar()) as banco:
+            momento, demo = agora_referencia(banco)
+        if demo:
+            print(f"  Modo demonstração: fora do almoço, a aba Hoje usa {hhmm(momento)} como 'agora' "
+                  f"(DEMO_AGORA; desligue com DEMO_AGORA=off).", flush=True)
         print("Ctrl+C para encerrar.", flush=True)
         try:
             servidor.serve_forever()

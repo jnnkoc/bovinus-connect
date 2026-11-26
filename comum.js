@@ -29,6 +29,7 @@ async function api(rota, { metodo, dados } = {}) {
   if (!resposta.ok) {
     const erro = new Error(resultado.erro || 'Algo deu errado. Tente novamente.');
     erro.status = resposta.status;
+    erro.dados = resultado;  // campos extras do erro (ex.: outro_dia)
     throw erro;
   }
   return resultado;
