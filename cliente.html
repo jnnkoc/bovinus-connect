@@ -123,6 +123,7 @@ details.categoria .check.desativado { opacity: .45; }
       <p class="selo selo-ok" style="margin: 0 auto">✓ Visita planejada</p>
       <h1>Seu código da visita</h1>
       <div class="codigo-grande" id="codigo-gerado" aria-live="polite"></div>
+      <div id="qr-gerado" style="width:200px;margin:0 auto"></div>
       <p><strong>Mostre este código na entrada.</strong><br><span class="mudo pequeno">Guarde também para a saída e para avaliar.</span></p>
       <div id="resumo-visita" class="alerta alerta-info" style="text-align:left"></div>
       <button class="btn btn-contorno btn-bloco" id="copiar">Copiar código</button>
@@ -143,6 +144,7 @@ details.categoria .check.desativado { opacity: .45; }
     <p id="erro-visita" class="alerta alerta-erro" role="alert" hidden></p>
     <div id="painel-visita" class="cartao" hidden>
       <div class="cartao-cabeca"><h2 id="visita-codigo"></h2><span class="selo" id="visita-origem"></span></div>
+      <div id="visita-qr" class="centro" style="width:160px;margin:0 auto" hidden></div>
       <ol class="status-linha" id="status-linha"></ol>
       <p class="mudo pequeno" id="visita-detalhe"></p>
       <div class="fidelidade" id="fidelidade" hidden><span class="num" id="fid-num"></span><span id="fid-texto"></span></div>
@@ -154,6 +156,7 @@ details.categoria .check.desativado { opacity: .45; }
 </main>
 
 <script src="/comum.js"></script>
+<script src="/vendor/qrcode.js"></script>
 <script>
 const MAX_PRATOS = 3;
 const telas = ['inicio', 'planejar', 'codigo', 'visita'];
@@ -327,6 +330,7 @@ document.getElementById('form-planejar').addEventListener('submit', async evento
 function mostrarCodigo() {
   const v = ultimaIntencao;
   document.getElementById('codigo-gerado').textContent = v.codigo;
+  document.getElementById("qr-gerado").innerHTML = qrSvg(v.codigo);
   const dia = v.horario_previsto.slice(0, 10);
   document.getElementById('resumo-visita').innerHTML =
     `<strong>${fmt.dataLonga(selDia.value)}, às ${fmt.hora(v.horario_previsto)}</strong> · ${v.pessoas} pessoa${v.pessoas > 1 ? 's' : ''}` +
@@ -371,6 +375,9 @@ async function buscarVisita(silencioso = false) {
 function desenharVisita(v) {
   document.getElementById('painel-visita').hidden = false;
   document.getElementById('visita-codigo').textContent = v.codigo;
+  const qrVisita = document.getElementById("visita-qr");
+  qrVisita.hidden = v.status === "encerrada";
+  if (!qrVisita.hidden && qrVisita.dataset.codigo !== v.codigo) { qrVisita.innerHTML = qrSvg(v.codigo); qrVisita.dataset.codigo = v.codigo; }
   document.getElementById('visita-origem').textContent = v.origem === 'planejado' ? 'Planejada no app' : 'Chegada sem app';
   const ordem = ['aguardando', 'em_andamento', 'encerrada'];
   const atual = ordem.indexOf(v.status);

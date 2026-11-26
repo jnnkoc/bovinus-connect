@@ -39,6 +39,11 @@ VIES_TEMA = {"buffet": 0.1, "espera": -0.5, "atendimento": 0.3}  # deslocamento 
 # Se agora estiver fora do almoço, a simulação de HOJE é deslocada como se fossem 12h45,
 # para o dashboard ao vivo ter visitas em andamento e intenções futuras.
 HORA_SIMULADA_FORA_DO_ALMOCO = time(12, 45)
+# Usuários de DEMONSTRAÇÃO para as telas da equipe. Só para a apresentação: troque antes de usar de verdade.
+USUARIOS_DEMO = [
+    ("gerente", "Gerente (demo)", "gerente", "bovinus-demo"),
+    ("atendente", "Atendente (demo)", "atendente", "terminal-demo"),
+]
 
 # Catálogo de pratos: (nome, categoria, descrição, vegetariano, popularidade relativa, fixo no cardápio)
 CATALOGO = [
@@ -126,7 +131,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")
     if app.BANCO.exists():
         app.BANCO.unlink()
-    app.preparar_banco()
+    app.preparar_banco(criar_usuarios=False)
     agora_real = app.agora()
     hoje = agora_real.astimezone(app.SP).date()
     hora_local = agora_real.astimezone(app.SP).time()
@@ -140,6 +145,8 @@ def main():
 
     with closing(app.conectar()) as banco, banco:
         banco.execute("INSERT INTO parametro (chave, valor) VALUES ('dados_simulados', '1')")
+        for login, nome, papel, senha in USUARIOS_DEMO:
+            app.criar_usuario(banco, login, nome, papel, senha)
         ids_pratos = {}
         for nome, cat, desc, veg, _, _ in CATALOGO:
             ids_pratos[nome] = banco.execute(
@@ -291,6 +298,9 @@ def main():
               f"{HORA_SIMULADA_FORA_DO_ALMOCO.strftime('%Hh%M')} (horários deslocados).")
     for chave, valor in sorted(contagem.items()):
         print(f"  {chave}: {valor}")
+    print("Usuários de DEMONSTRAÇÃO (troque com: py usuarios.py senha <login>):")
+    for login, _, papel, senha in USUARIOS_DEMO:
+        print(f"  {login} / {senha}  ({papel})")
 
 
 if __name__ == "__main__":

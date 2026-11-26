@@ -21,6 +21,11 @@ async function api(rota, { metodo, dados } = {}) {
     throw new Error('Sem conexão com o servidor.');
   }
   const resultado = await resposta.json().catch(() => ({}));
+  // Tela da equipe com sessão vencida: volta para o login.
+  if (resposta.status === 401 && document.body.hasAttribute('data-equipe')) {
+    location.href = '/login?volta=' + encodeURIComponent(location.pathname + location.search + location.hash);
+    throw new Error('Sessão encerrada. Faça login novamente.');
+  }
   if (!resposta.ok) {
     const erro = new Error(resultado.erro || 'Algo deu errado. Tente novamente.');
     erro.status = resposta.status;
@@ -89,8 +94,25 @@ function avisar(mensagem, tipo = '') {
   _avisoTimer = setTimeout(() => { el.hidden = true; }, 3500);
 }
 
+// QR code (SVG) do código da visita. Usa vendor/qrcode.js.
+function qrSvg(texto, rotulo = 'QR code do código da visita') {
+  if (typeof qrcode === 'undefined') return '';
+  const qr = qrcode(0, 'M');
+  qr.addData(texto);
+  qr.make();
+  return qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true, title: rotulo });
+}
+
+// Usuário logado (telas da equipe).
+async function usuarioAtual() {
+  try { return await api('/api/eu'); } catch { return null; }
+}
+async function sair() {
+  try { await api('/api/logout', { dados: {} }); } finally { location.href = '/login'; }
+}
+
 // Menu lateral das telas da equipe.
-function montarLateral(ativo) {
+async function montarLateral(ativo) {
   const itens = [
     ['/dashboard', '📊', 'Dashboard'],
     ['/cardapio', '🍽️', 'Cardápio do dia'],
@@ -101,5 +123,10 @@ function montarLateral(ativo) {
     itens.map(([href, icone, nome]) =>
       `<a href="${href}" class="${href === ativo ? 'ativo' : ''}"><span aria-hidden="true">${icone}</span>${nome}</a>`
     ).join('') +
-    `<div class="rodape">Bovinu's Connect · Unidade Augusta<br>MVP Hackathon FMU</div>`;
+    `<div class="rodape"><div id="usuario-logado"></div>
+      <button type="button" class="btn btn-fantasma" id="btn-sair" style="color:#fff;padding:.3rem 0;min-height:0">⎋ Sair</button>
+      <div style="margin-top:.6rem">Bovinu's Connect · Unidade Augusta<br>MVP Hackathon FMU</div></div>`;
+  document.getElementById('btn-sair').onclick = sair;
+  const u = await usuarioAtual();
+  if (u) document.getElementById('usuario-logado').textContent = `${u.nome} · ${u.papel}`;
 }

@@ -1,7 +1,11 @@
 """Bovinu's Connect — servidor e API REST (somente biblioteca padrão)."""
 import csv
+import hashlib
+import hmac
 import io
 import json
+import threading
+from http.cookies import CookieError, SimpleCookie
 import mimetypes
 import os
 import re
@@ -14,7 +18,7 @@ from contextlib import closing
 from datetime import date, datetime, time, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 PASTA = Path(__file__).resolve().parent
 BANCO = Path(os.environ.get("BOVINUS_BANCO", PASTA / "bovinus.db"))
@@ -39,6 +43,16 @@ PAGINAS = {
     "/cardapio": "cardapio.html",
     "/dashboard": "dashboard.html",
 }
+PAGINAS["/login"] = "login.html"
+# Telas da equipe exigem login; o valor diz quais papéis podem abrir.
+GERENTE = ("gerente",)
+EQUIPE = ("gerente", "atendente")
+PAGINAS_EQUIPE = {"terminal.html": EQUIPE, "cardapio.html": GERENTE, "dashboard.html": GERENTE}
+COOKIE = "bovinus_sessao"
+DURACAO_SESSAO = timedelta(hours=12)
+ITERACOES_SENHA = 200_000
+MAX_FALHAS_LOGIN = 5
+BLOQUEIO_LOGIN = timedelta(minutes=5)
 ARQUIVOS = {"estilo.css", "comum.js"}
 PASTAS_ESTATICAS = ("img", "vendor")
 
@@ -128,8 +142,9 @@ def conectar():
     return banco
 
 
-def preparar_banco():
-    """Cria o banco. Um banco da versão antiga é guardado como .bak e recriado."""
+def preparar_banco(criar_usuarios=True):
+    """Cria o banco. Um banco da versão antiga é guardado como .bak e recriado.
+    Sem nenhum usuário, cria 'gerente' e 'atendente' com senha aleatória e mostra no terminal."""
     if BANCO.exists():
         with closing(sqlite3.connect(BANCO)) as banco:
             versao = banco.execute("PRAGMA user_version").fetchone()[0]
@@ -140,6 +155,99 @@ def preparar_banco():
             print(f"Banco antigo movido para {reserva.name}; criando banco novo.", flush=True)
     with closing(conectar()) as banco:
         banco.executescript((PASTA / "schema.sql").read_text(encoding="utf-8"))
+        if criar_usuarios and not banco.execute("SELECT COUNT(*) FROM usuario").fetchone()[0]:
+            print("Nenhum usuário da equipe encontrado. Criados agora (anote as senhas):", flush=True)
+            with banco:
+                for login, nome, papel in (("gerente", "Gerente", "gerente"), ("atendente", "Atendente", "atendente")):
+                    senha = os.environ.get(f"BOVINUS_SENHA_{login.upper()}") or secrets.token_urlsafe(9)
+                    criar_usuario(banco, login, nome, papel, senha)
+                    print(f"  {login} ({papel}): {senha}", flush=True)
+            print("Para trocar: py usuarios.py senha <login>", flush=True)
+
+
+# ---------------------------------------------------------------- equipe e sessão
+
+def hash_senha(senha, sal=None, iteracoes=ITERACOES_SENHA):
+    sal = sal or secrets.token_hex(16)
+    calculado = hashlib.pbkdf2_hmac("sha256", senha.encode(), bytes.fromhex(sal), iteracoes).hex()
+    return f"pbkdf2_sha256${iteracoes}${sal}${calculado}"
+
+
+def conferir_senha(senha, armazenado):
+    try:
+        _, iteracoes, sal, _ = armazenado.split("$")
+        return hmac.compare_digest(hash_senha(senha, sal, int(iteracoes)), armazenado)
+    except ValueError:
+        return False
+
+
+def validar_senha(senha):
+    if not isinstance(senha, str) or len(senha) < 8:
+        raise ErroAPI(400, "A senha precisa ter pelo menos 8 caracteres.")
+
+
+def criar_usuario(banco, login, nome, papel, senha):
+    validar_senha(senha)
+    if papel not in EQUIPE:
+        raise ErroAPI(400, "Papel inválido. Use gerente ou atendente.")
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,30}", login):
+        raise ErroAPI(400, "Login: 3 a 30 letras, números, ponto, hífen ou sublinhado.")
+    banco.execute("INSERT INTO usuario (login, nome, papel, senha_hash) VALUES (?, ?, ?, ?)",
+                  (login, nome, papel, hash_senha(senha)))
+
+
+def hash_token(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+_falhas_login = {}
+_trava_falhas = threading.Lock()
+
+
+def entrar(banco, dados, ip):
+    login = str(dados.get("login", "")).strip().lower()
+    senha = dados.get("senha", "")
+    chave = (ip, login)
+    with _trava_falhas:
+        falhas, ate = _falhas_login.get(chave, (0, None))
+        if ate and agora() < ate:
+            raise ErroAPI(429, "Muitas tentativas. Aguarde alguns minutos e tente de novo.")
+    usuario = banco.execute("SELECT * FROM usuario WHERE login = ? AND ativo = 1", (login,)).fetchone()
+    if usuario is None or not isinstance(senha, str) or not conferir_senha(senha, usuario["senha_hash"]):
+        with _trava_falhas:
+            falhas += 1
+            _falhas_login[chave] = (0, agora() + BLOQUEIO_LOGIN) if falhas >= MAX_FALHAS_LOGIN else (falhas, None)
+        raise ErroAPI(401, "Login ou senha incorretos.")
+    with _trava_falhas:
+        _falhas_login.pop(chave, None)
+    banco.execute("DELETE FROM sessao WHERE expira_em < ?", (iso(agora()),))
+    token = secrets.token_urlsafe(32)
+    banco.execute("INSERT INTO sessao (token_hash, usuario_id, criada_em, expira_em) VALUES (?, ?, ?, ?)",
+                  (hash_token(token), usuario["id"], iso(agora()), iso(agora() + DURACAO_SESSAO)))
+    return token, {"login": usuario["login"], "nome": usuario["nome"], "papel": usuario["papel"]}
+
+
+def usuario_da_sessao(banco, token):
+    if not token:
+        return None
+    linha = banco.execute(
+        """SELECT u.login, u.nome, u.papel FROM sessao s JOIN usuario u ON u.id = s.usuario_id
+           WHERE s.token_hash = ? AND s.expira_em > ? AND u.ativo = 1""",
+        (hash_token(token), iso(agora()))).fetchone()
+    return dict(linha) if linha else None
+
+
+def papeis_exigidos(metodo, partes):
+    """Quem pode chamar cada rota da API. None = pública (app do cliente)."""
+    if not partes:
+        return None
+    if partes[0] == "cardapio" and metodo != "GET":
+        return GERENTE
+    if partes[0] in ("dashboard", "visitas.csv", "clientes"):
+        return GERENTE
+    if partes == ["visitas"] or (partes[0] == "jornadas" and partes[-1] == "proxima" and len(partes) == 3):
+        return EQUIPE
+    return None
 
 
 def fechar_visitas_antigas(banco):
@@ -808,8 +916,18 @@ class Servidor(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(corpo)
 
-    def responder(self, status, dados):
-        self.enviar(status, json.dumps(dados, ensure_ascii=False).encode(), "application/json; charset=utf-8")
+    def responder(self, status, dados, extra=None):
+        self.enviar(status, json.dumps(dados, ensure_ascii=False).encode(), "application/json; charset=utf-8", extra)
+
+    def token(self):
+        try:
+            biscoito = SimpleCookie(self.headers.get("Cookie", ""))
+        except CookieError:
+            return None
+        return biscoito[COOKIE].value if COOKIE in biscoito else None
+
+    def cookie_sessao(self, token, duracao):
+        return {"Set-Cookie": f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={duracao}"}
 
     def ler_json(self):
         try:
@@ -857,7 +975,7 @@ class Servidor(BaseHTTPRequestHandler):
         tipo = mimetypes.guess_type(alvo.name)[0] or "application/octet-stream"
         if tipo.startswith("text/") or tipo.endswith("javascript"):
             tipo += "; charset=utf-8"
-        return alvo.read_bytes(), tipo
+        return alvo.read_bytes(), tipo, nome
 
     def atender(self):
         url = urlsplit(self.path)
@@ -868,13 +986,30 @@ class Servidor(BaseHTTPRequestHandler):
                 arquivo = self.arquivo_estatico(caminho)
                 if arquivo is None:
                     return self.enviar(404, "Página não encontrada.".encode(), "text/plain; charset=utf-8")
-                return self.enviar(200, *arquivo)
+                papeis = PAGINAS_EQUIPE.get(arquivo[2])
+                if papeis:
+                    with closing(conectar()) as banco:
+                        usuario = usuario_da_sessao(banco, self.token())
+                    if not usuario or usuario["papel"] not in papeis:
+                        destino = "/login?volta=" + quote(self.path, safe="") + ("&negado=1" if usuario else "")
+                        return self.enviar(302, b"", "text/plain", {"Location": destino})
+                return self.enviar(200, *arquivo[:2])
+            partes = caminho.strip("/").split("/")[1:]  # remove "api"
             with closing(conectar()) as banco, banco:
+                self.usuario = usuario_da_sessao(banco, self.token())
+                papeis = papeis_exigidos(self.command, partes)
+                if papeis and not self.usuario:
+                    raise ErroAPI(401, "Faça login para continuar.")
+                if papeis and self.usuario["papel"] not in papeis:
+                    raise ErroAPI(403, "Seu usuário não tem acesso a esta função.")
                 if self.command == "GET":
                     fechar_visitas_antigas(banco)
                     resultado = self.rota_get(banco, caminho, consulta)
                 else:
                     dados = self.ler_json()
+                    if self.headers.get("Content-Length", "0") != "0" and \
+                            not self.headers.get("Content-Type", "").startswith("application/json"):
+                        raise ErroAPI(415, "Envie o corpo como application/json.")
                     banco.execute("BEGIN IMMEDIATE")
                     fechar_visitas_antigas(banco)
                     resultado = self.rota_escrita(banco, caminho, dados)
@@ -894,6 +1029,10 @@ class Servidor(BaseHTTPRequestHandler):
 
     def rota_get(self, banco, caminho, consulta):
         partes = caminho.strip("/").split("/")[1:]  # remove "api"
+        if partes == ["eu"]:
+            if not self.usuario:
+                raise ErroAPI(401, "Faça login para continuar.")
+            return 200, self.usuario
         if partes == ["cardapio"]:
             return 200, listar_cardapio(banco, ler_data(consulta.get("data")))
         if len(partes) == 2 and partes[0] == "jornadas":
@@ -913,6 +1052,13 @@ class Servidor(BaseHTTPRequestHandler):
     def rota_escrita(self, banco, caminho, dados):
         partes = caminho.strip("/").split("/")[1:]
         metodo = self.command
+        if metodo == "POST" and partes == ["login"]:
+            token, usuario = entrar(banco, dados, self.client_address[0])
+            return 200, usuario, self.cookie_sessao(token, int(DURACAO_SESSAO.total_seconds()))
+        if metodo == "POST" and partes == ["logout"]:
+            if self.token():
+                banco.execute("DELETE FROM sessao WHERE token_hash = ?", (hash_token(self.token()),))
+            return 200, {"ok": True}, self.cookie_sessao("", 0)
         if metodo == "POST" and partes == ["intencoes"]:
             return criar_intencao(banco, dados)
         if metodo == "POST" and partes == ["visitas"]:
@@ -957,7 +1103,7 @@ if __name__ == "__main__":
         ip = endereco_rede()
         if host == "0.0.0.0" and ip:
             print(f"  No celular (mesma rede Wi-Fi):  http://{ip}:{porta}", flush=True)
-        print("  Telas: /  /avaliar  /terminal  /cardapio  /dashboard", flush=True)
+        print("  Cliente: /  e  /avaliar   ·   Equipe (com login): /terminal  /cardapio  /dashboard", flush=True)
         print("Ctrl+C para encerrar.", flush=True)
         try:
             servidor.serve_forever()

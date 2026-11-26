@@ -39,7 +39,7 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
 .dica-modo { color: #fff; opacity: .8; text-align: center; margin-top: 1rem; font-size: .9rem; }
 </style>
 </head>
-<body>
+<body data-equipe>
 <div class="barra">
   <span class="logo"><img src="/img/logo.png" alt="Bovinu's Grill & Beer"></span>
   <div class="modos" role="group" aria-label="Modo do terminal">
@@ -48,6 +48,8 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
     <button data-modo="caixa">💳 Caixa</button>
   </div>
   <span class="relogio" id="relogio"></span>
+  <button type="button" class="btn btn-fantasma" id="btn-sair" title="Encerrar sessão da equipe"
+          style="color:#fff;min-height:40px">⎋ Sair</button>
 </div>
 
 <main class="palco">
@@ -65,6 +67,8 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
         <input id="mesa" type="number" inputmode="numeric" min="1" max="999" placeholder="—">
       </div>
       <button class="btn btn-primario btn-enorme btn-bloco" style="margin-top:1.2rem" id="btn-confirmar"></button>
+      <button type="button" class="btn btn-contorno btn-grande btn-bloco" style="margin-top:.8rem" id="btn-camera">📷 Ler QR code pela câmera</button>
+      <p class="mudo pequeno" id="aviso-camera" hidden style="margin-top:.6rem"></p>
     </form>
     <div id="bloco-espontaneo">
       <div class="ou">ou</div>
@@ -88,14 +92,26 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
     <div class="icone-grande" style="color:var(--ok)">✓</div>
     <h1>Bem-vindo! Seu código é:</h1>
     <div class="codigo-grande" id="esp-codigo" style="font-size:clamp(3rem,15vw,5rem);margin:1rem 0"></div>
+    <div id="esp-qr" style="width:180px;margin:0 auto 1rem"></div>
     <p class="alerta alerta-aviso" style="font-size:1.15rem"><strong>Guarde este código para a saída e para avaliar.</strong><br>
       Tire uma foto ou anote.</p>
     <button class="btn btn-primario btn-enorme btn-bloco" id="esp-pronto">Pronto</button>
     <p class="mudo pequeno" style="margin-top:.8rem">Volta ao início em <span id="esp-tempo">20</span> s</p>
   </section>
+
+  <!-- leitura de QR pela câmera -->
+  <section class="painel" id="tela-camera" hidden>
+    <h1>Aponte o QR code para a câmera</h1>
+    <p class="sub">O registro é feito assim que o código for lido.</p>
+    <video id="video" playsinline muted style="width:100%;border-radius:16px;background:#000;aspect-ratio:4/3;object-fit:cover"></video>
+    <canvas id="quadro" hidden></canvas>
+    <button class="btn btn-contorno btn-grande btn-bloco" style="margin-top:1rem" id="camera-cancelar">Cancelar</button>
+  </section>
 </main>
 
 <script src="/comum.js"></script>
+<script src="/vendor/qrcode.js"></script>
+<script src="/vendor/jsQR.js"></script>
 <script>
 const MODOS = {
   entrada: { titulo: 'Bem-vindo à Bovinu\'s!', sub: 'Digite ou aproxime do leitor o código do app.', botao: 'Fazer check-in →', etapa: 'Check-in' },
@@ -115,8 +131,69 @@ const campo = document.getElementById('codigo');
 const mesa = document.getElementById('mesa');
 
 function tela(nome) {
-  ['leitura', 'resultado', 'espontaneo'].forEach(t => document.getElementById('tela-' + t).hidden = t !== nome);
+  if (nome !== 'camera') pararCamera();
+  ['leitura', 'resultado', 'espontaneo', 'camera'].forEach(t => document.getElementById('tela-' + t).hidden = t !== nome);
 }
+
+// ---------- leitura de QR pela câmera ----------
+// Usa BarcodeDetector (Chrome/Edge no Android e Windows) e, se não houver, jsQR (vendor/).
+// A câmera só funciona em contexto seguro: http://127.0.0.1 / localhost ou HTTPS.
+let fluxo = null, laco = null, detector = null;
+const video = document.getElementById('video');
+const avisoCamera = document.getElementById('aviso-camera');
+if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+  document.getElementById('btn-camera').hidden = true;
+  avisoCamera.hidden = false;
+  avisoCamera.textContent = 'Câmera indisponível neste endereço (precisa de localhost ou HTTPS). Use um leitor USB ou digite o código.';
+}
+
+async function abrirCamera() {
+  if (ocupado) return;
+  try {
+    fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch {
+    avisoCamera.hidden = false;
+    avisoCamera.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
+    return;
+  }
+  tela('camera');
+  video.srcObject = fluxo;
+  await video.play().catch(() => {});
+  if ('BarcodeDetector' in window) {
+    try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; }
+  }
+  const canvas = document.getElementById('quadro');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  laco = setInterval(async () => {
+    if (!fluxo || video.readyState < 2) return;
+    let texto = null;
+    if (detector) {
+      const achados = await detector.detect(video).catch(() => []);
+      texto = achados[0]?.rawValue || null;
+    } else if (typeof jsQR !== 'undefined') {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      texto = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })?.data || null;
+    }
+    const codigo = normalizarCodigo(texto);
+    if (codigo) {
+      pararCamera();
+      campo.value = codigo;
+      registrar();
+    }
+  }, 200);
+}
+
+function pararCamera() {
+  clearInterval(laco); laco = null;
+  if (fluxo) fluxo.getTracks().forEach(t => t.stop());
+  fluxo = null;
+  video.srcObject = null;
+}
+document.getElementById('btn-camera').onclick = abrirCamera;
+document.getElementById('camera-cancelar').onclick = voltarInicio;
+document.getElementById('btn-sair').onclick = () => { if (confirm('Encerrar a sessão da equipe neste terminal?')) sair(); };
 
 function aplicarModo(novo) {
   modo = novo;
@@ -194,6 +271,7 @@ document.getElementById('btn-espontaneo').onclick = async () => {
   try {
     const v = await api('/api/visitas', { dados: {} });
     document.getElementById('esp-codigo').textContent = v.codigo;
+    document.getElementById('esp-qr').innerHTML = qrSvg(v.codigo);
     tela('espontaneo');
     let resta = 20;
     document.getElementById('esp-tempo').textContent = resta;

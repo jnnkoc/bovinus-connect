@@ -91,7 +91,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .campo { display: flex; flex-direction: column; gap: .35rem; }
 .campo label, .rotulo { font-weight: 650; font-size: .95rem; }
 .campo .ajuda { font-size: .8rem; color: var(--texto-2); }
-input[type=text], input[type=tel], input[type=date], input[type=number], select, textarea {
+input[type=text], input[type=password], input[type=tel], input[type=date], input[type=number], select, textarea {
   border: 1.5px solid #cdb9a3; border-radius: 10px; padding: .65rem .8rem; background: #fff; min-height: 46px; width: 100%; }
 textarea { min-height: 90px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--bordo); outline: none; box-shadow: 0 0 0 3px var(--bordo-claro); }
@@ -166,7 +166,8 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: .92rem; }
   .lateral .logo { margin: 0 .5rem 0 0; width: 90px; height: 43px; }
   .lateral .logo img { width: 111px; height: 111px; margin: -29px 0 0 -10px; }
   .lateral a { padding: .5rem .7rem; font-size: .9rem; }
-  .lateral .rodape { display: none; }
+  .lateral .rodape { margin: 0 0 0 auto; padding: 0 .5rem; }
+  .lateral .rodape > div { display: none; }
   .principal .corpo { padding: 1rem; }
 }
 

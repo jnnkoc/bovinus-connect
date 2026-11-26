@@ -70,6 +70,24 @@ CREATE TABLE IF NOT EXISTS avaliacao (
     criada_em TEXT NOT NULL
 );
 
+-- Equipe: gerente (dashboard, cardápio e terminal) e atendente (só terminal).
+CREATE TABLE IF NOT EXISTS usuario (
+    id INTEGER PRIMARY KEY,
+    login TEXT NOT NULL UNIQUE COLLATE NOCASE CHECK (length(login) BETWEEN 3 AND 30),
+    nome TEXT NOT NULL,
+    papel TEXT NOT NULL CHECK (papel IN ('gerente', 'atendente')),
+    senha_hash TEXT NOT NULL,          -- pbkdf2_sha256$iterações$sal$hash
+    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1))
+);
+
+-- Guarda só o hash do token; o token fica no cookie HttpOnly.
+CREATE TABLE IF NOT EXISTS sessao (
+    token_hash TEXT PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+    criada_em TEXT NOT NULL,
+    expira_em TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_intencao_previsto ON intencao(horario_previsto);
 CREATE INDEX IF NOT EXISTS idx_visita_check_in ON visita(check_in_em);
 CREATE INDEX IF NOT EXISTS idx_visita_aberta ON visita(check_out_em) WHERE check_out_em IS NULL;

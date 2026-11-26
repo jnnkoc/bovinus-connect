@@ -20,6 +20,8 @@ Uma plataforma integrada, um banco único, várias telas. Dois tipos de cliente:
 
 Diferencial: a intenção do cliente vira **previsão de demanda do buffet** (horário e pratos), comparada com o que acontece de fato na operação.
 
+Login da equipe: telas `/terminal` (gerente e atendente), `/cardapio` e `/dashboard` (só gerente) exigem login; as telas do cliente são públicas.
+
 Próximos passos (NÃO construir agora): foto do prato na balança com IA, chamado de garçom, benefícios de fidelidade, outras unidades.
 
 ## Telas
@@ -103,7 +105,8 @@ Planejado: o código da intenção vira o código da visita no check-in. Espont�
 - `comum.js` — utilitários JS compartilhados (API, formatação, menu lateral)
 - `img/` — logo oficial
 - `iniciar.bat` — atalho para Windows (cria dados simulados se faltar o banco e sobe o servidor)
-- `vendor/` — bibliotecas JS locais (ainda vazio)
+- `login.html` — login da equipe · `usuarios.py` — gerenciar usuários · `testes.py` — testes automatizados (`py testes.py`)
+- `vendor/` — bibliotecas JS locais (`qrcode.js`, `jsQR.js`; ver `vendor/LEIAME.md`)
 - `docs/` — documentação de entrega e `docs/referencias/` (mockups)
 
 ## Identidade visual

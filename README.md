@@ -22,6 +22,42 @@ Abra http://127.0.0.1:8000. O servidor também aceita conexões da rede local e 
 Variáveis opcionais: `BOVINUS_PORTA` (padrão 8000), `BOVINUS_HOST` (padrão `0.0.0.0`; use `127.0.0.1` para só este computador)
 e `BOVINUS_BANCO` (caminho do arquivo SQLite).
 
+## Login da equipe
+
+As telas `/terminal`, `/cardapio` e `/dashboard` (e as rotas da API que elas usam) exigem login em `/login`.
+
+| Papel | Acessa |
+| --- | --- |
+| `gerente` | Dashboard, cardápio do dia e terminal |
+| `atendente` | Só o terminal |
+
+- **Com `py seed.py`** são criados usuários de **demonstração**: `gerente` / `bovinus-demo` e `atendente` / `terminal-demo`
+  (definidos no topo do `seed.py`). Servem só para a apresentação.
+- **Sem o seed**, na primeira vez que o `app.py` roda ele cria `gerente` e `atendente` com **senhas aleatórias** e as mostra
+  no terminal. Para escolher as senhas, defina `BOVINUS_SENHA_GERENTE` e `BOVINUS_SENHA_ATENDENTE` antes de iniciar.
+- Gerenciar usuários: `py usuarios.py listar`, `py usuarios.py criar <login> <gerente|atendente> "<Nome>"`,
+  `py usuarios.py senha <login>`, `py usuarios.py desativar <login>`.
+- Senhas guardadas com PBKDF2-SHA256 (200 mil iterações, sal próprio). Sessão de 12 h em cookie `HttpOnly` e `SameSite=Strict`;
+  o banco guarda só o hash do token. Após 5 senhas erradas, o login fica bloqueado por 5 minutos.
+
+## QR code
+
+- O app do cliente mostra o QR do código da visita (tela do código e "Minha visita"); o totem mostra o QR do espontâneo.
+- No terminal, **📷 Ler QR code pela câmera** registra a etapa assim que lê o código. Também funciona leitor USB de QR
+  (ele "digita" o código e envia Enter) e digitar o código.
+- O navegador só libera a câmera em **localhost (127.0.0.1) ou HTTPS**. Pelo IP da rede (`http://192.168...`) o botão some
+  e aparece o aviso; nesse caso use leitor USB ou digite o código.
+- Bibliotecas locais em `vendor/` (ver `vendor/LEIAME.md`).
+
+## Testes
+
+```bash
+py testes.py
+```
+
+Sobe o servidor numa porta livre com um banco temporário (não mexe no `bovinus.db`) e testa login, papéis, jornada
+planejada e espontânea, regras da intenção, cardápio, dashboard, CSV e bloqueio de caminhos.
+
 ## Telas
 
 | Rota | Arquivo | Para quem | O que faz |
@@ -35,7 +71,7 @@ e `BOVINUS_BANCO` (caminho do arquivo SQLite).
 ## Fluxo da demonstração
 
 1. `py seed.py` e `py app.py`.
-2. `/cardapio`: confira o cardápio de hoje (ou copie o do dia anterior).
+2. `/cardapio` (login `gerente` / `bovinus-demo`): confira o cardápio de hoje (ou copie o do dia anterior).
 3. `/` no celular: **Planejar visita** → anote o código `BOV-XXXX`.
 4. `/terminal?modo=entrada`: digite o código → check-in. Teste também **Sou cliente espontâneo**.
 5. `/terminal?modo=balanca` (opcional) e `/terminal?modo=caixa` → saída.
@@ -44,7 +80,7 @@ e `BOVINUS_BANCO` (caminho do arquivo SQLite).
 
 ## Banco (SQLite, `schema.sql`)
 
-`cliente` · `prato` · `cardapio_dia` · `intencao` · `intencao_prato` · `visita` · `avaliacao` · `parametro`, e a view `jornada`.
+`cliente` · `prato` · `cardapio_dia` · `intencao` · `intencao_prato` · `visita` · `avaliacao` · `usuario` · `sessao` · `parametro`, e a view `jornada`.
 
 - Horários gravados em **UTC ISO 8601**; exibidos em `America/Sao_Paulo` (UTC−3 fixo, sem horário de verão).
 - `visita` tem código próprio e `origem` (`planejado` | `espontaneo`). No planejado, o código da intenção vira o código da visita no check-in.
@@ -55,11 +91,18 @@ e `BOVINUS_BANCO` (caminho do arquivo SQLite).
 
 ## Contrato da API
 
-Corpo e respostas em JSON. Erros retornam `{"erro": "mensagem"}` com 400 (dados inválidos), 404 (não encontrado) ou 409 (conflito ou etapa fora de ordem).
+**Acesso:** públicas (app do cliente): `GET /api/cardapio`, `POST /api/intencoes`, `GET /api/jornadas/{codigo}`,
+`POST .../avaliacao`. **Equipe** (gerente ou atendente): `POST /api/visitas` e `POST .../proxima`. **Só gerente**: escrita
+no cardápio, `/api/dashboard/*`, `/api/visitas.csv` e `/api/clientes/*`. Sem login → 401; papel sem acesso → 403.
+
+Corpo e respostas em JSON (envie `Content-Type: application/json`). Erros retornam `{"erro": "mensagem"}` com 400 (dados inválidos), 404 (não encontrado) ou 409 (conflito ou etapa fora de ordem).
 O código aceita `BOV-ABCD`, `bov-abcd` ou só `ABCD`.
 
 | Método e rota | Corpo | Resposta |
 | --- | --- | --- |
+| `POST /api/login` | `{login, senha}` | `{login, nome, papel}` + cookie de sessão (401 senha errada, 429 bloqueado) |
+| `POST /api/logout` | — | encerra a sessão |
+| `GET /api/eu` | — | usuário logado ou 401 |
 | `GET /api/cardapio?data=AAAA-MM-DD` | — | `{data, pratos:[{id, nome, categoria, descricao, vegetariano, destaque}]}` (sem `data` = hoje) |
 | `POST /api/cardapio/{data}` | `{nome, categoria, descricao?, vegetariano?, destaque?}` | 201 + cardápio do dia |
 | `PUT /api/cardapio/{data}/{prato_id}` | mesmos campos | cardápio do dia |
@@ -89,11 +132,11 @@ recorrência por celular, chegadas previstas (pessoas) × reais (check-ins) por 
 
 ## Segurança e privacidade (limites do MVP)
 
-- Protótipo para demonstração local com dados fictícios: **não há login**. Antes de publicar, proteger `/terminal`,
-  `/cardapio`, `/dashboard` e as rotas de escrita e de painel.
+- Telas e rotas da equipe protegidas por login (ver acima). As senhas de demonstração do `seed.py` são públicas:
+  troque-as (`py usuarios.py senha <login>`) antes de qualquer uso fora da apresentação.
+- O servidor usa HTTP simples. Para publicar na internet, coloque-o atrás de HTTPS (proxy reverso) — isso também libera a câmera.
 - A consulta pública da visita não devolve nome nem celular. O celular só é usado para contar visitas, com aceite LGPD registrado.
 
 ## Próximos passos (fora deste MVP)
 
-QR code no app e leitura pela câmera no terminal (bibliotecas locais em `vendor/`), mapa de mesas com tempo de mesa suja,
-foto do prato na balança com IA, chamado de garçom, benefícios de fidelidade e outras unidades.
+Mapa de mesas com tempo de mesa suja, foto do prato na balança com IA, chamado de garçom, benefícios de fidelidade e outras unidades.
