@@ -72,23 +72,6 @@ bovinus-connect/
 └── docs/               ← documentação (Markdown), PDFs e diagramas SVG
 ```
 
-## Site institucional e GitHub Pages
-
-O site em `site/` é uma **demonstração estática**: mostra o projeto com capturas e simulações feitas no navegador.
-O sistema de verdade é o backend Python, que roda separadamente (`python app.py`).
-
-**Publicar:** no GitHub, abra **Settings → Pages**, em *Build and deployment* escolha **Deploy from a branch**, branch
-**`main`** e pasta **`/ (root)`**, e salve. Em 1–2 minutos o site fica em `https://jnnkoc.github.io/bovinus-connect/`
-(o `index.html` da raiz leva para `site/`).
-
-**Editar o site** (precisa de Node.js 18+):
-
-```bash
-cd site-src
-npm install
-npm run dev      # pré-visualização em http://localhost:5173
-npm run build    # gera ../site (é essa pasta que vai para o GitHub)
-```
 ---
 
 # Detalhes técnicos do MVP
