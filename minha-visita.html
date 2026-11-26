@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#7d1d1f">
+<title>Minha visita · Bovinu's Connect</title>
+<link rel="icon" href="/img/logo.png">
+<link rel="stylesheet" href="/estilo.css">
+<style>
+.leitura-qr { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; }
+.leitura-qr .btn { flex: 1 1 180px; }
+.status-linha { list-style: none; padding: 0; margin: 1rem 0; }
+.status-linha li { display: flex; gap: .9rem; align-items: flex-start; position: relative; padding-bottom: 1.3rem; }
+.status-linha li:last-child { padding-bottom: 0; }
+.status-linha li::before { content: ""; position: absolute; left: 17px; top: 36px; bottom: 0; width: 3px; background: var(--borda); }
+.status-linha li:last-child::before { display: none; }
+.status-linha .bola { width: 37px; height: 37px; border-radius: 50%; display: grid; place-items: center; flex: none;
+                      background: var(--creme-2); color: var(--texto-2); font-weight: 800; border: 3px solid var(--borda); }
+.status-linha li.feito .bola { background: var(--ok); border-color: var(--ok); color: #fff; }
+.status-linha li.feito::before { background: var(--ok); }
+.status-linha li.atual .bola { background: var(--ambar); border-color: var(--ambar); color: var(--texto); }
+.status-linha li.atual strong { color: var(--bordo); }
+.status-linha li.pulado .bola { border-style: dashed; }
+.fidelidade { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.fidelidade > div { background: var(--ambar-claro); border-radius: 12px; padding: .8rem 1rem; }
+.fidelidade .num { font-size: 2rem; font-weight: 800; color: var(--bordo); line-height: 1.1; }
+.fidelidade .txt { font-weight: 650; }
+</style>
+</head>
+<body>
+<header class="topo">
+  <a class="voltar" href="/" aria-label="Voltar ao início" style="color:#fff;text-decoration:none;font-size:1.5rem;padding:.2rem .5rem">←</a>
+  <span class="logo"><img src="/img/logo.png" alt="Bovinu's Grill & Beer"></span>
+  <div class="titulo"><strong>Minha visita</strong><span>Unidade Augusta</span></div>
+</header>
+
+<main class="conteudo pilha">
+  <form id="form-codigo" class="cartao" novalidate>
+    <div class="campo"><label for="codigo">Código da visita</label>
+      <div class="linha"><input id="codigo" type="text" placeholder="BOV-XXXX" autocomplete="off" autocapitalize="characters"
+             spellcheck="false" maxlength="10" style="flex:1; text-transform:uppercase; font-weight:700; letter-spacing:.05em">
+        <button class="btn btn-primario">Ver visita</button></div>
+      <span class="ajuda">Está no app (visita planejada) ou no totem/comprovante da entrada (chegada sem app).</span></div>
+    <div class="leitura-qr">
+      <button type="button" class="btn btn-contorno" id="btn-camera">📷 Ler QR code</button>
+      <label class="btn btn-contorno" id="btn-foto" style="cursor:pointer">🖼️ Ler QR de uma foto
+        <input type="file" id="foto" accept="image/*" capture="environment" hidden></label>
+    </div>
+    <p class="mudo pequeno" id="aviso-camera" hidden style="margin:.5rem 0 0"></p>
+  </form>
+
+  <section class="cartao pilha" id="tela-camera" hidden>
+    <h2>Aponte para o QR code</h2>
+    <video id="video" playsinline muted style="width:100%;border-radius:14px;background:#000;aspect-ratio:4/3;object-fit:cover"></video>
+    <button type="button" class="btn btn-contorno btn-bloco" id="camera-cancelar">Cancelar</button>
+  </section>
+
+  <p id="erro" class="alerta alerta-erro" role="alert" hidden></p>
+
+  <section id="painel" class="pilha" hidden>
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2 id="v-codigo"></h2><span class="selo" id="v-origem"></span></div>
+      <ol class="status-linha" id="status-linha"></ol>
+      <p class="mudo pequeno" id="v-pratos"></p>
+      <div id="v-qr" style="width:150px;margin:0 auto" hidden></div>
+      <p class="mudo pequeno centro" id="v-qr-texto" hidden style="margin:.3rem 0 0">Mostre este QR no totem, na balança e no caixa.</p>
+    </div>
+
+    <!-- espontâneo sem celular: completar cadastro -->
+    <form id="form-cadastro" class="cartao pilha" hidden novalidate>
+      <div><h2>Complete seu cadastro</h2>
+        <p class="mudo pequeno" style="margin:.2rem 0 0">Você chegou sem usar o app. Informe nome e celular para contar suas visitas,
+          juntar pontos e liberar a avaliação.</p></div>
+      <div class="campo"><label for="nome">Nome</label><input id="nome" type="text" autocomplete="name" maxlength="80" required></div>
+      <div class="campo"><label for="celular">Celular com DDD</label>
+        <input id="celular" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(11) 91234-5678" maxlength="15" required>
+        <span class="ajuda">Se você já tem cadastro com este celular, a visita entra nele.</span></div>
+      <label class="check"><input type="checkbox" id="lgpd">
+        <span class="pequeno">Autorizo a Bovinu's a usar meu nome e celular para registrar esta visita e contar minhas visitas,
+        conforme a LGPD. Posso pedir a exclusão dos meus dados a qualquer momento.</span></label>
+      <p id="erro-cadastro" class="alerta alerta-erro" role="alert" hidden></p>
+      <button class="btn btn-primario btn-bloco" id="btn-cadastro">Completar cadastro</button>
+    </form>
+
+    <!-- com cadastro: fidelidade + avaliação -->
+    <div id="bloco-cliente" class="cartao pilha" hidden>
+      <h2>Sua fidelidade</h2>
+      <div class="fidelidade">
+        <div><div class="num" id="f-visitas"></div><div class="txt" id="f-visitas-txt"></div></div>
+        <div><div class="num" id="f-pontos"></div><div class="txt" id="f-pontos-txt"></div></div>
+      </div>
+      <p class="mudo pequeno" style="margin:0">Visitas contam quando a saída é registrada no caixa. Cada avaliação vale 1 ponto.</p>
+      <a class="btn btn-primario btn-bloco" id="btn-avaliar">Avaliar minha visita →</a>
+      <p class="alerta alerta-info" id="avaliar-depois" hidden style="margin:0">A avaliação fica disponível depois que a saída for registrada no caixa.</p>
+      <p class="alerta alerta-ok" id="ja-avaliada" hidden style="margin:0">Obrigado pela sua avaliação!</p>
+    </div>
+    <p class="mudo pequeno centro" id="sem-cadastro-avaliar" hidden style="margin:0">
+      Prefere não informar seus dados? <a id="link-avaliar-anonimo">Avaliar sem cadastro</a> (sem pontos).</p>
+    <p class="mudo pequeno centro" style="margin:0">Atualiza sozinho a cada 10 segundos.</p>
+  </section>
+</main>
+
+<script src="/comum.js"></script>
+<script src="/vendor/qrcode.js"></script>
+<script src="/vendor/jsQR.js"></script>
+<script>
+const campo = document.getElementById('codigo');
+const erro = document.getElementById('erro');
+let visita = null;
+let timer = null;
+
+// ---------- busca ----------
+async function buscar(silencioso = false) {
+  const codigo = normalizarCodigo(campo.value);
+  if (!codigo) { erro.textContent = 'Digite o código no formato BOV-XXXX.'; erro.hidden = false; return; }
+  try {
+    const v = await api('/api/jornadas/' + codigo);
+    erro.hidden = true;
+    campo.value = v.codigo;
+    localStorage.setItem('bovinus_codigo', v.codigo);
+    history.replaceState(null, '', '?codigo=' + v.codigo);
+    desenhar(v);
+    clearInterval(timer);
+    if (!(v.status === 'encerrada' && v.avaliada)) timer = setInterval(() => buscar(true), 10000);
+  } catch (e) {
+    if (silencioso) return;
+    clearInterval(timer);
+    erro.textContent = e.message; erro.hidden = false;
+    document.getElementById('painel').hidden = true;
+  }
+}
+document.getElementById('form-codigo').addEventListener('submit', e => { e.preventDefault(); buscar(); });
+
+// ---------- status: check-in, buffet, check-out ----------
+function desenhar(v) {
+  visita = v;
+  document.getElementById('painel').hidden = false;
+  document.getElementById('v-codigo').textContent = v.codigo;
+  document.getElementById('v-origem').textContent = v.origem === 'planejado' ? 'Planejada no app' : 'Chegada sem app';
+  const etapas = [
+    { feito: !!v.check_in_em, titulo: 'Check-in na entrada',
+      detalhe: v.check_in_em ? `Chegada às ${fmt.hora(v.check_in_em)}`
+        : v.horario_previsto ? `Previsto para ${fmt.dataCurta(v.horario_previsto)} às ${fmt.hora(v.horario_previsto)} · faça o check-in no totem`
+        : 'Faça o check-in no totem da entrada' },
+    { feito: !!v.buffet_concluido_em, titulo: 'Buffet concluído (balança)',
+      pulado: !v.buffet_concluido_em && !!v.check_out_em,
+      detalhe: v.buffet_concluido_em ? `Pesado às ${fmt.hora(v.buffet_concluido_em)}`
+        : v.check_out_em ? 'Não registrado' : 'Registrado na balança' },
+    { feito: !!v.check_out_em, titulo: 'Check-out no caixa',
+      detalhe: v.check_out_em ? (v.saida_estimada ? 'Encerrada automaticamente' : `Saída às ${fmt.hora(v.check_out_em)}`)
+        : 'Registrado no caixa, na saída' },
+  ];
+  const atual = etapas.findIndex(e => !e.feito && !e.pulado);
+  document.getElementById('status-linha').innerHTML = etapas.map((e, i) => {
+    const classe = e.feito ? 'feito' : e.pulado ? 'pulado' : i === atual ? 'atual' : '';
+    return `<li class="${classe}"><span class="bola">${e.feito ? '✓' : e.pulado ? '–' : i + 1}</span>
+      <div><strong>${e.titulo}</strong><br><span class="mudo pequeno">${esc(e.detalhe)}</span></div></li>`;
+  }).join('');
+  document.getElementById('v-pratos').textContent = v.pratos.length ? 'Pratos de interesse: ' + v.pratos.join(', ') : '';
+
+  const qr = document.getElementById('v-qr');
+  qr.hidden = document.getElementById('v-qr-texto').hidden = v.status === 'encerrada';
+  if (!qr.hidden && qr.dataset.codigo !== v.codigo) { qr.innerHTML = qrSvg(v.codigo); qr.dataset.codigo = v.codigo; }
+
+  // Sem celular (espontâneo): formulário. Com celular: fidelidade e botão de avaliar.
+  document.getElementById('form-cadastro').hidden = v.cadastro;
+  document.getElementById('bloco-cliente').hidden = !v.cadastro;
+  const anonimo = document.getElementById('sem-cadastro-avaliar');
+  anonimo.hidden = v.cadastro || v.status !== 'encerrada' || v.avaliada;
+  document.getElementById('link-avaliar-anonimo').href = '/avaliar?codigo=' + encodeURIComponent(v.codigo);
+  if (v.cadastro) {
+    document.getElementById('f-visitas').textContent = v.visitas_cliente;
+    document.getElementById('f-visitas-txt').textContent = v.visitas_cliente
+      ? `Você já veio ${vezes(v.visitas_cliente)}` : 'Você ainda não tem visita concluída';
+    document.getElementById('f-pontos').textContent = v.pontos_cliente;
+    document.getElementById('f-pontos-txt').textContent = `Você tem ${pontos(v.pontos_cliente)}`;
+    const botao = document.getElementById('btn-avaliar');
+    botao.hidden = !(v.status === 'encerrada' && !v.avaliada);
+    botao.href = '/avaliar?codigo=' + encodeURIComponent(v.codigo);
+    document.getElementById('avaliar-depois').hidden = v.status === 'encerrada';
+    document.getElementById('ja-avaliada').hidden = !v.avaliada;
+  }
+}
+
+// ---------- completar cadastro ----------
+const celular = document.getElementById('celular');
+celular.addEventListener('input', () => {
+  const d = celular.value.replace(/\D/g, '').slice(0, 11);
+  celular.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`
+    : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d;
+});
+
+document.getElementById('form-cadastro').addEventListener('submit', async e => {
+  e.preventDefault();
+  const aviso = document.getElementById('erro-cadastro');
+  const dados = {
+    nome: document.getElementById('nome').value.trim(),
+    celular: celular.value,
+    aceite_lgpd: document.getElementById('lgpd').checked,
+  };
+  const problema = dados.nome.length < 2 ? 'Informe seu nome.'
+    : ![10, 11].includes(dados.celular.replace(/\D/g, '').length) ? 'Informe o celular com DDD.'
+    : !dados.aceite_lgpd ? 'Para continuar, marque a autorização de uso dos dados.' : null;
+  if (problema) { aviso.textContent = problema; aviso.hidden = false; return; }
+  aviso.hidden = true;
+  const botao = document.getElementById('btn-cadastro');
+  botao.disabled = true;
+  try {
+    desenhar(await api(`/api/jornadas/${visita.codigo}/cadastro`, { dados }));
+    avisar('Cadastro completo! Esta visita já está no seu nome.', 'ok');
+  } catch (err) {
+    aviso.textContent = err.message; aviso.hidden = false;
+    if (err.status === 409) buscar(true);
+  } finally { botao.disabled = false; }
+});
+
+// ---------- QR: câmera ao vivo ou foto ----------
+const avisoCamera = document.getElementById('aviso-camera');
+let pararLeitor = null;
+function mostrarAvisoCamera(texto) { avisoCamera.textContent = texto; avisoCamera.hidden = !texto; }
+function fecharCamera() {
+  if (pararLeitor) pararLeitor();
+  pararLeitor = null;
+  document.getElementById('tela-camera').hidden = true;
+}
+function codigoLido(codigo) {
+  fecharCamera();
+  campo.value = codigo;
+  mostrarAvisoCamera('');
+  buscar();
+}
+if (!cameraAoVivoDisponivel()) document.getElementById('btn-camera').hidden = true;  // em http pela rede: só foto
+document.getElementById('btn-camera').onclick = async () => {
+  try {
+    pararLeitor = await iniciarLeitorQR(document.getElementById('video'), codigo => { pararLeitor = null; codigoLido(codigo); });
+    document.getElementById('tela-camera').hidden = false;
+    mostrarAvisoCamera('');
+  } catch { mostrarAvisoCamera('Não foi possível abrir a câmera. Use "Ler QR de uma foto" ou digite o código.'); }
+};
+document.getElementById('camera-cancelar').onclick = fecharCamera;
+document.getElementById('foto').onchange = async e => {
+  const arquivo = e.target.files[0];
+  e.target.value = '';
+  if (!arquivo) return;
+  mostrarAvisoCamera('Lendo a foto…');
+  try {
+    const codigo = await lerQrDeFoto(arquivo);
+    if (codigo) codigoLido(codigo);
+    else mostrarAvisoCamera('Não encontrei um código BOV-XXXX na foto. Tente de mais perto, com o QR inteiro e nítido.');
+  } catch { mostrarAvisoCamera('Não foi possível abrir a foto.'); }
+};
+
+const inicial = new URLSearchParams(location.search).get('codigo') || localStorage.getItem('bovinus_codigo');
+if (inicial) { campo.value = inicial; buscar(); }
+</script>
+</body>
+</html>

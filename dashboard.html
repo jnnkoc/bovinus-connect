@@ -44,12 +44,48 @@
 .periodo button { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.5); border-radius: 9px; padding: .35rem .7rem;
                   font-weight: 650; cursor: pointer; min-height: 38px; }
 .atualizado { font-size: .8rem; opacity: .85; }
-#tv { position: fixed; inset: 0; background: var(--bordo-escuro); color: #fff; z-index: 50; display: flex; flex-direction: column; padding: 2rem; }
-#tv .numeros { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; align-items: center; text-align: center; }
-#tv .n { font-size: clamp(4rem, 12vw, 10rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-#tv .n.texto { font-size: clamp(2rem, 5vw, 4.5rem); }
-#tv .r { font-size: clamp(1rem, 2vw, 1.6rem); opacity: .85; margin-top: 1rem; }
-@media (max-width: 800px) { #tv .numeros { grid-template-columns: 1fr; } }
+/* Escolha da TV (antes da tela cheia) */
+#tv-escolha { border: 0; border-radius: 18px; padding: 1.5rem; width: min(640px, 94vw); background: var(--papel); }
+#tv-escolha::backdrop { background: rgba(43, 27, 22, .55); }
+.opcoes-tv { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.opcoes-tv button { text-align: left; border: 2px solid var(--borda); background: #fff; border-radius: 14px; padding: 1rem;
+                    cursor: pointer; font: inherit; color: var(--texto); }
+.opcoes-tv button:hover, .opcoes-tv button:focus-visible { border-color: var(--bordo); }
+.opcoes-tv strong { display: block; font-size: 1.2rem; color: var(--bordo); margin-bottom: .4rem; }
+.opcoes-tv ul { margin: 0; padding-left: 1.1rem; font-size: .88rem; color: var(--texto-2); }
+@media (max-width: 600px) { .opcoes-tv { grid-template-columns: 1fr; } }
+
+/* TV */
+#tv { position: fixed; inset: 0; background: var(--bordo-escuro); color: #fff; z-index: 50; display: flex; flex-direction: column;
+      gap: 1.5rem; padding: 1.5rem 2rem; overflow: auto; }
+#tv .tv-topo { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+#tv .tv-topo .btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.6); min-height: 40px; padding: .35rem .9rem; }
+#tv .tv-topo .btn[aria-pressed=true] { background: var(--creme); color: var(--bordo); border-color: var(--creme); }
+#tv .tv-grade { display: grid; gap: 1.5rem; }
+#tv .tv-grade.g4 { flex: 1; grid-template-columns: repeat(2, 1fr); }
+#tv .tv-grade.g3 { grid-template-columns: repeat(3, 1fr); }
+#tv .bloco { background: rgba(255,255,255,.07); border-radius: 20px; padding: 1.4rem; text-align: center;
+             display: flex; flex-direction: column; justify-content: center; }
+#tv .n { font-size: clamp(3.5rem, 9vw, 8rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+#tv .g3 .n { font-size: clamp(3rem, 6.5vw, 6rem); }
+#tv .n.texto { font-size: clamp(2rem, 4.5vw, 4rem); }
+#tv .n small { font-size: .4em; font-weight: 650; opacity: .85; }
+#tv .r { font-size: clamp(1rem, 1.8vw, 1.5rem); opacity: .9; margin-top: .8rem; }
+#tv .r2 { font-size: clamp(.85rem, 1.3vw, 1.1rem); opacity: .7; margin-top: .3rem; }
+#tv .tv-listas { flex: 1; display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; min-height: 0; }
+#tv .painel-tv { background: rgba(255,255,255,.07); border-radius: 20px; padding: 1.2rem 1.4rem; }
+#tv .painel-tv h2 { color: #fff; font-size: clamp(1.1rem, 1.8vw, 1.5rem); margin: 0 0 .3rem; }
+#tv .painel-tv .nota { opacity: .7; font-size: .95rem; margin: 0 0 .8rem; }
+#tv .lista-tv { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+#tv .lista-tv li { display: flex; align-items: center; gap: .8rem; padding: .55rem .8rem; border-radius: 10px;
+                   background: rgba(255,255,255,.05); font-size: clamp(1rem, 1.6vw, 1.35rem); border-left: 6px solid transparent; }
+#tv .lista-tv li .t { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+#tv .lista-tv li.acima { background: rgba(212,149,43,.22); border-left-color: var(--ambar); }
+#tv .lista-tv li .marca { background: var(--ambar); color: var(--texto); border-radius: 6px; padding: .05rem .45rem;
+                          font-size: .75em; font-weight: 750; white-space: nowrap; }
+#tv .lista-tv.mesas li { font-size: clamp(1.2rem, 2vw, 1.7rem); }
+#tv .vazio { opacity: .7; font-size: 1.1rem; }
+@media (max-width: 900px) { #tv .tv-grade.g4, #tv .tv-grade.g3, #tv .tv-listas { grid-template-columns: 1fr; } }
 .tabela td.cod { font-weight: 700; font-variant-numeric: tabular-nums; }
 </style>
 </head>
@@ -164,16 +200,52 @@
   </div>
 </div>
 
-<div id="tv" hidden>
-  <div class="linha"><span class="logo"><img src="/img/logo.png" alt=""></span>
-    <strong style="font-size:1.4rem">Bovinu's Connect · Ao vivo</strong>
-    <span class="atualizado" id="tv-hora" style="margin-left:auto;font-size:1.2rem"></span>
-    <button class="btn btn-contorno" id="tv-sair" style="background:transparent;color:#fff;border-color:#fff">Sair (Esc)</button></div>
-  <div class="numeros">
-    <div><div class="n" id="tv-salao">—</div><div class="r">clientes no salão agora</div></div>
-    <div><div class="n" id="tv-prox">—</div><div class="r">pessoas previstas na próxima meia hora</div></div>
-    <div><div class="n texto" id="tv-prato">—</div><div class="r">prato mais desejado hoje</div></div>
+<dialog id="tv-escolha" aria-labelledby="tv-escolha-titulo">
+  <h2 id="tv-escolha-titulo">Qual TV você quer abrir?</h2>
+  <p class="mudo pequeno" style="margin:.2rem 0 0">Abre em tela cheia. Dá para trocar de TV lá dentro; Esc sai.</p>
+  <div class="opcoes-tv">
+    <button type="button" data-tv="cozinha"><strong>🍳 TV Cozinha</strong>
+      <ul><li>Pessoas previstas na próxima hora</li><li>Prato mais desejado do dia</li>
+        <li>Pessoas na casa agora</li><li>Tempo médio até a balança</li></ul></button>
+    <button type="button" data-tv="salao"><strong>🍽️ TV Salão</strong>
+      <ul><li>Pessoas na casa agora</li><li>Permanência média, com destaque para quem já passou dela</li>
+        <li>Pessoas previstas na próxima hora</li><li>Mesas aguardando limpeza</li></ul></button>
   </div>
+  <form method="dialog" style="text-align:right"><button class="btn btn-fantasma">Cancelar</button></form>
+</dialog>
+
+<div id="tv" hidden>
+  <div class="tv-topo"><span class="logo"><img src="/img/logo.png" alt=""></span>
+    <strong style="font-size:1.4rem" id="tv-titulo"></strong>
+    <span class="selo" id="tv-demo" hidden style="background:var(--creme);color:var(--bordo)"></span>
+    <span class="atualizado" id="tv-hora" style="margin-left:auto;font-size:1.2rem"></span>
+    <span role="group" aria-label="Trocar de TV" style="display:inline-flex;gap:.4rem">
+      <button class="btn" data-trocar="cozinha">🍳 Cozinha</button><button class="btn" data-trocar="salao">🍽️ Salão</button></span>
+    <button class="btn" id="tv-cheia" title="Tela cheia">⛶</button>
+    <button class="btn" id="tv-sair">Sair (Esc)</button></div>
+
+  <section id="tv-cozinha" class="tv-grade g4" hidden>
+    <div class="bloco"><div class="n" id="k-prox">—</div><div class="r">pessoas previstas na próxima hora</div><div class="r2">intenções que ainda não chegaram</div></div>
+    <div class="bloco"><div class="n texto" id="k-prato">—</div><div class="r">prato mais desejado hoje</div><div class="r2" id="k-prato-det"></div></div>
+    <div class="bloco"><div class="n" id="k-casa">—</div><div class="r">pessoas na casa agora</div><div class="r2" id="k-casa-det"></div></div>
+    <div class="bloco"><div class="n" id="k-balanca">—</div><div class="r">tempo médio do check-in até a balança</div><div class="r2">visitas de hoje</div></div>
+  </section>
+
+  <section id="tv-salao" hidden style="display:flex;flex-direction:column;gap:1.5rem;flex:1">
+    <div class="tv-grade g3">
+      <div class="bloco"><div class="n" id="s-casa">—</div><div class="r">pessoas na casa agora</div><div class="r2" id="s-casa-det"></div></div>
+      <div class="bloco"><div class="n" id="s-perm">—</div><div class="r">permanência média hoje</div><div class="r2" id="s-perm-det"></div></div>
+      <div class="bloco"><div class="n" id="s-prox">—</div><div class="r">pessoas previstas na próxima hora</div><div class="r2">intenções que ainda não chegaram</div></div>
+    </div>
+    <div class="tv-listas">
+      <div class="painel-tv"><h2>Visitas em curso há mais tempo</h2>
+        <p class="nota" id="s-curso-nota"></p>
+        <ul class="lista-tv" id="s-curso"></ul></div>
+      <div class="painel-tv"><h2>🧽 Mesas aguardando limpeza</h2>
+        <p class="nota" id="s-mesas-nota"></p>
+        <ul class="lista-tv mesas" id="s-mesas"></ul></div>
+    </div>
+  </section>
 </div>
 
 <script src="/comum.js"></script>
@@ -358,13 +430,66 @@ async function carregarHoje() {
   barrasH(document.getElementById('funil-esp'), [
     { rotulo: 'Check-in', valor: e.visitas }, { rotulo: 'Check-out', valor: e.check_out }, { rotulo: 'Avaliação', valor: e.avaliacoes },
   ], { max: Math.max(1, e.visitas), cor: COR.espontaneo });
-
-  const top = d.pratos.find(p => p.desejos > 0);
-  document.getElementById('tv-salao').textContent = c.no_salao ?? '—';
-  document.getElementById('tv-prox').textContent = d.proxima_meia_hora;
-  document.getElementById('tv-prato').textContent = top ? top.nome : '—';
-  document.getElementById('tv-hora').textContent = fmt.horaSeg(d.atualizado_em);
   return d;
+}
+
+// ------------------------------------------------------------------ TVs Cozinha e Salão
+const NOMES_TV = { cozinha: '🍳 TV Cozinha', salao: '🍽️ TV Salão' };
+let tipoTv = null;
+
+function texto(id, valor) { document.getElementById(id).textContent = valor; }
+
+async function carregarTv() {
+  const d = await api('/api/dashboard/tv');
+  const casa = d.na_casa;
+  const detCasa = `${casa.visitas} ${casa.visitas === 1 ? 'visita aberta' : 'visitas abertas'} (check-in sem check-out)`;
+  texto('tv-hora', fmt.horaSeg(d.atualizado_em));
+  const demo = document.getElementById('tv-demo');
+  demo.hidden = !d.agora_simulado;
+  if (d.agora_simulado) demo.textContent = `🕐 Agora simulado: ${fmt.hora(d.agora_simulado)}`;
+
+  // Cozinha
+  texto('k-prox', fmt.numero(d.previstas_proxima_hora));
+  texto('k-prato', d.prato_top ? `${CATEGORIAS[d.prato_top.categoria].icone} ${d.prato_top.nome}` : '—');
+  texto('k-prato-det', d.prato_top ? `marcado em ${d.prato_top.desejos} ${d.prato_top.desejos === 1 ? 'intenção' : 'intenções'}` : 'nenhuma intenção com prato hoje');
+  texto('k-casa', fmt.numero(casa.pessoas));
+  texto('k-casa-det', detCasa);
+  texto('k-balanca', fmt.minutos(d.balanca_media));
+
+  // Salão
+  texto('s-casa', fmt.numero(casa.pessoas));
+  texto('s-casa-det', detCasa);
+  texto('s-perm', fmt.minutos(d.permanencia_media));
+  texto('s-perm-det', d.permanencia_media === null ? 'ainda sem check-outs hoje'
+    : `${d.acima_media} ${d.acima_media === 1 ? 'visita em curso já passou' : 'visitas em curso já passaram'} da média`);
+  texto('s-prox', fmt.numero(d.previstas_proxima_hora));
+
+  const curso = d.em_curso.slice(0, 8);
+  texto('s-curso-nota', d.em_curso.length
+    ? `${d.em_curso.length} em curso. ⚠ = já passou da permanência média: provável mesa para liberar e limpar em breve.`
+    : '');
+  document.getElementById('s-curso').innerHTML = curso.length ? curso.map(v => `
+    <li class="${v.acima_media ? 'acima' : ''}">
+      <span>${v.acima_media ? '⚠' : '·'}</span>
+      <strong>${esc(v.codigo)}</strong><span style="opacity:.8">${v.pessoas} ${v.pessoas === 1 ? 'pessoa' : 'pessoas'}</span>
+      ${v.acima_media ? '<span class="marca">acima da média</span>' : ''}
+      <span class="t">${fmt.minutos(v.minutos)}</span></li>`).join('')
+    : '<li class="vazio">Nenhuma visita em curso.</li>';
+
+  texto('s-mesas-nota', `Check-outs com mesa informada nos últimos ${fmt.numero(d.janela_limpeza_min)} min. Some da lista sozinha depois disso.`);
+  document.getElementById('s-mesas').innerHTML = d.mesas_limpeza.length ? d.mesas_limpeza.map(m => `
+    <li><strong>Mesa ${m.mesa}</strong><span class="t">há ${m.minutos} min</span></li>`).join('')
+    : '<li class="vazio">Nenhuma mesa aguardando limpeza.</li>';
+  return d;
+}
+
+function mostrarTv(tipo) {
+  tipoTv = tipo;
+  texto('tv-titulo', NOMES_TV[tipo]);
+  document.getElementById('tv-cozinha').hidden = tipo !== 'cozinha';
+  document.getElementById('tv-salao').hidden = tipo !== 'salao';
+  document.querySelectorAll('[data-trocar]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.trocar === tipo)));
+  history.replaceState(null, '', '#tv-' + tipo);
 }
 
 // ------------------------------------------------------------------ aba Análise
@@ -443,9 +568,13 @@ async function carregarAnalise() {
 // ------------------------------------------------------------------ controle
 async function atualizar() {
   try {
+    if (!tv.hidden) { await carregarTv(); return; }
     const d = aba === 'hoje' ? await carregarHoje() : await carregarAnalise();
     document.getElementById('atualizado').textContent = 'Atualizado às ' + fmt.horaSeg(d.atualizado_em);
-  } catch (e) { document.getElementById('atualizado').textContent = '⚠ ' + e.message; }
+  } catch (e) {
+    document.getElementById('atualizado').textContent = '⚠ ' + e.message;
+    if (!tv.hidden) texto('tv-hora', '⚠ ' + e.message);
+  }
 }
 
 function trocarAba(nova) {
@@ -470,22 +599,37 @@ document.querySelector('#periodo button[data-dias="7"]').setAttribute('aria-pres
 campoData.value = hojeISO();
 campoData.onchange = atualizar;
 
+// Modo TV: primeiro escolhe Cozinha ou Salão; depois abre em tela cheia.
+// Também abre direto por /dashboard#tv-cozinha ou #tv-salao (sem tela cheia: use o botão ⛶).
 const tv = document.getElementById('tv');
-document.getElementById('btn-tv').onclick = () => {
-  campoData.value = hojeISO();
+const escolha = document.getElementById('tv-escolha');
+document.getElementById('btn-tv').onclick = () => escolha.showModal();
+function abrirTv(tipo, telaCheia) {
+  mostrarTv(tipo);
   tv.hidden = false;
-  document.documentElement.requestFullscreen?.().catch(() => {});
+  if (telaCheia) document.documentElement.requestFullscreen?.().catch(() => {});
   atualizar();
-};
-function sairTv() { tv.hidden = true; if (document.fullscreenElement) document.exitFullscreen(); }
+}
+escolha.querySelectorAll('[data-tv]').forEach(b => b.onclick = () => { escolha.close(); abrirTv(b.dataset.tv, true); });
+document.querySelectorAll('[data-trocar]').forEach(b => b.onclick = () => { mostrarTv(b.dataset.trocar); atualizar(); });
+document.getElementById('tv-cheia').onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
+function sairTv() {
+  if (tv.hidden) return;
+  tv.hidden = true; tipoTv = null;
+  history.replaceState(null, '', location.pathname);
+  if (document.fullscreenElement) document.exitFullscreen();
+  atualizar();
+}
 document.getElementById('tv-sair').onclick = sairTv;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') sairTv(); });
-document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) tv.hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !escolha.open) sairTv(); });
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) sairTv(); });
 
 let redimensionar;
 window.addEventListener('resize', () => { clearTimeout(redimensionar); redimensionar = setTimeout(atualizar, 200); });
 setInterval(atualizar, 10000);
+const tvInicial = { '#tv-cozinha': 'cozinha', '#tv-salao': 'salao' }[location.hash];
 trocarAba(location.hash === '#analise' ? 'analise' : 'hoje');
+if (tvInicial) abrirTv(tvInicial, false);
 </script>
 </body>
 </html>

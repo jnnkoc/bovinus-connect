@@ -37,9 +37,25 @@ ALMOCO = (time(11, 0), time(15, 0))
 DEMO_AGORA_PADRAO = "12:40"  # sobrescreva com a variável de ambiente DEMO_AGORA (ou DEMO_AGORA=off)
 FAIXA = timedelta(minutes=15)
 
+
+def minutos_do_ambiente(nome, padrao):
+    texto = os.environ.get(nome, str(padrao))
+    try:
+        valor = float(texto.replace(",", "."))
+        if valor <= 0:
+            raise ValueError
+    except ValueError:
+        sys.exit(f"{nome} inválido: {texto!r}. Use um número de minutos maior que zero, por exemplo {padrao}.")
+    return timedelta(minutes=valor)
+
+
+# Mesa com check-out há menos que isso aparece em "Mesas aguardando limpeza" (TV Salão).
+JANELA_LIMPEZA = minutos_do_ambiente("JANELA_LIMPEZA_MIN", 45)
+
 PAGINAS = {
     "/": "cliente.html",
     "/cliente": "cliente.html",
+    "/minha-visita": "minha-visita.html",
     "/avaliar": "avaliar.html",
     "/terminal": "terminal.html",
     "/cardapio": "cardapio.html",
@@ -254,8 +270,10 @@ def papeis_exigidos(metodo, partes):
 
 
 def fechar_visitas_antigas(banco):
-    """Visita sem check-out após 3 h é fechada com saida_estimada = 1."""
-    limite = iso(agora_referencia(banco)[0] - LIMITE_VISITA)
+    """Visita sem check-out após 3 h é fechada com saida_estimada = 1.
+    Usa o menor entre o agora real e o simulado: à noite não fecha as visitas abertas do seed,
+    e de madrugada (agora simulado 12:40 à frente) não fecha na hora o que é registrado ao vivo."""
+    limite = iso(min(agora_referencia(banco)[0], agora()) - LIMITE_VISITA)
     abertas = banco.execute(
         "SELECT id, check_in_em FROM visita WHERE check_out_em IS NULL AND check_in_em < ?", (limite,)
     ).fetchall()
@@ -432,12 +450,12 @@ def buscar_jornada(banco, codigo):
     return dict(linha)
 
 
-def visitas_do_cliente(banco, cliente_id):
+def fidelidade(banco, cliente_id):
+    """Visitas (com check-out) e pontos (avaliações) do cliente, pela view fidelidade."""
     if cliente_id is None:
         return None
-    return banco.execute(
-        "SELECT COUNT(*) FROM visita WHERE cliente_id = ? AND check_out_em IS NOT NULL", (cliente_id,)
-    ).fetchone()[0]
+    linha = banco.execute("SELECT visitas, pontos FROM fidelidade WHERE cliente_id = ?", (cliente_id,)).fetchone()
+    return {"visitas": linha["visitas"], "pontos": linha["pontos"]} if linha else None
 
 
 def consultar(banco, codigo):
@@ -454,6 +472,7 @@ def consultar(banco, codigo):
         status = "em_andamento"
     else:
         status = "aguardando"
+    fid = fidelidade(banco, j["cliente_id"])
     return {
         "codigo": j["codigo"],
         "origem": j["origem"],
@@ -467,8 +486,39 @@ def consultar(banco, codigo):
         "saida_estimada": bool(j["saida_estimada"]),
         "mesa": j["mesa"],
         "avaliada": j["nota_nps"] is not None,
-        "visitas_cliente": visitas_do_cliente(banco, j["cliente_id"]),
+        "cadastro": j["cliente_id"] is not None,     # celular vinculado (planejado sempre; espontâneo só se completar)
+        "visitas_cliente": fid["visitas"] if fid else None,
+        "pontos_cliente": fid["pontos"] if fid else None,
     }
+
+
+def validar_cliente(dados, motivo):
+    nome = str(dados.get("nome", "")).strip()
+    celular = re.sub(r"\D", "", str(dados.get("celular", "")))
+    if not 2 <= len(nome) <= 80:
+        raise ErroAPI(400, "Informe seu nome.")
+    if len(celular) not in (10, 11):
+        raise ErroAPI(400, "Informe o celular com DDD.")
+    if dados.get("aceite_lgpd") is not True:
+        raise ErroAPI(400, f"É preciso aceitar o uso dos dados para {motivo}.")
+    return nome, celular
+
+
+def completar_cadastro(banco, codigo, dados):
+    """Vincula nome + celular a uma visita sem cadastro (espontâneo).
+    Celular novo cria o cliente; celular já cadastrado usa o cliente existente."""
+    j = buscar_jornada(banco, codigo)
+    if j["cliente_id"] is not None:
+        raise ErroAPI(409, "Esta visita já está vinculada a um cadastro.")
+    nome, celular = validar_cliente(dados, "completar o cadastro")
+    banco.execute(
+        """INSERT INTO cliente (nome, celular, consentimento_em) VALUES (?, ?, ?)
+           ON CONFLICT(celular) DO UPDATE SET consentimento_em = excluded.consentimento_em""",
+        (nome, celular, iso(agora())),
+    )
+    cliente_id = banco.execute("SELECT id FROM cliente WHERE celular = ?", (celular,)).fetchone()["id"]
+    banco.execute("UPDATE visita SET cliente_id = ? WHERE id = ?", (cliente_id, j["visita_id"]))
+    return 200, consultar(banco, codigo)
 
 
 def criar_intencao(banco, dados):
@@ -500,14 +550,7 @@ def criar_intencao(banco, dados):
         if not set(pratos) <= no_dia:
             raise ErroAPI(400, "Algum prato escolhido não está no cardápio desse dia.")
 
-    nome = str(dados.get("nome", "")).strip()
-    celular = re.sub(r"\D", "", str(dados.get("celular", "")))
-    if not 2 <= len(nome) <= 80:
-        raise ErroAPI(400, "Informe seu nome.")
-    if len(celular) not in (10, 11):
-        raise ErroAPI(400, "Informe o celular com DDD.")
-    if dados.get("aceite_lgpd") is not True:
-        raise ErroAPI(400, "É preciso aceitar o uso dos dados para planejar a visita.")
+    nome, celular = validar_cliente(dados, "planejar a visita")
 
     momento = iso(agora())
     banco.execute(
@@ -614,6 +657,10 @@ def avaliar(banco, codigo, dados):
     comentario = dados.get("comentario", "")
     if not isinstance(comentario, str) or len(comentario.strip()) > 500:
         raise ErroAPI(400, "O comentário deve ter até 500 caracteres.")
+    # A avaliação conta ponto para o cliente da visita; no planejado, o celular vem da intenção.
+    banco.execute(
+        """UPDATE visita SET cliente_id = (SELECT cliente_id FROM intencao WHERE id = visita.intencao_id)
+           WHERE id = ? AND cliente_id IS NULL AND intencao_id IS NOT NULL""", (j["visita_id"],))
     banco.execute(
         """INSERT INTO avaliacao (visita_id, nota_nps, nota_buffet, nota_espera, nota_atendimento,
                                   comentario, criada_em) VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -627,7 +674,7 @@ def consultar_cliente(banco, celular):
     linha = banco.execute("SELECT id FROM cliente WHERE celular = ?", (celular,)).fetchone()
     if linha is None:
         raise ErroAPI(404, "Cliente não encontrado.")
-    return 200, {"visitas": visitas_do_cliente(banco, linha["id"])}
+    return 200, fidelidade(banco, linha["id"])
 
 
 # ---------------------------------------------------------------- dashboard
@@ -772,6 +819,63 @@ def painel_hoje(banco, dia):
             "check_out": sum(1 for v in espontaneos if v["check_out_em"]),
             "avaliacoes": sum(1 for v in espontaneos if v["nota_nps"] is not None),
         },
+    }
+
+
+def painel_tv(banco):
+    """Números das TVs Cozinha e Salão, sempre para hoje."""
+    referencia, demo = agora_referencia(banco)
+    real = agora()
+    dia = referencia.astimezone(SP).date()
+
+    def decorrido(evento):
+        # Minutos desde o evento. Sem demonstração, os dois relógios são iguais. Com o 'agora'
+        # simulado, vale a menor idade não negativa: dados do seed.py são medidos pelo agora
+        # simulado e registros feitos ao vivo no terminal, pelo relógio real (a qualquer hora).
+        momento = ler_iso(evento)
+        idades = [(base - momento).total_seconds() / 60 for base in (referencia, real)]
+        return min((i for i in idades if i >= 0), default=None)  # None: no futuro dos dois relógios
+
+    visitas, intencoes = carregar_periodo(banco, dia, dia)
+    abertas = [v for v in visitas if not v["check_out_em"]]
+    permanencia = media(v["permanencia"] for v in visitas if v["permanencia"] is not None)
+    em_curso = []
+    for v in abertas:
+        tempo = decorrido(v["check_in_em"]) or 0
+        em_curso.append({"codigo": v["codigo"], "origem": v["origem"], "pessoas": v["pessoas"] or 1,
+                         "minutos": round(tempo), "acima_media": permanencia is not None and tempo > permanencia})
+    em_curso.sort(key=lambda v: -v["minutos"])
+
+    # Mesas: último check-out (não estimado) de cada mesa dentro da janela de limpeza.
+    mesas = {}
+    for v in visitas:
+        if v["mesa"] is None or not v["check_out_em"] or v["saida_estimada"]:
+            continue
+        idade = decorrido(v["check_out_em"])
+        if idade is not None and idade < JANELA_LIMPEZA.total_seconds() / 60 and (
+                v["mesa"] not in mesas or idade < mesas[v["mesa"]]["minutos"]):
+            mesas[v["mesa"]] = {"mesa": v["mesa"], "check_out_em": v["check_out_em"], "minutos": idade}
+    aguardando = sorted(mesas.values(), key=lambda m: -m["minutos"])
+    for m in aguardando:
+        m["minutos"] = int(m["minutos"])
+
+    # Próxima hora: intenções previstas de agora até agora + 1 h que ainda não fizeram check-in.
+    proxima_hora = sum(i["pessoas"] for i in intencoes if not i["visita_id"]
+                       and referencia <= ler_iso(i["horario_previsto"]) < referencia + timedelta(hours=1))
+    top = next((p for p in pratos_desejados(banco, dia) if p["desejos"]), None)
+    return {
+        "data": dia.isoformat(),
+        "atualizado_em": iso(real),
+        "agora_simulado": iso(referencia) if demo else None,
+        "na_casa": {"pessoas": sum(v["pessoas"] or 1 for v in abertas), "visitas": len(abertas)},
+        "previstas_proxima_hora": proxima_hora,
+        "prato_top": top and {"nome": top["nome"], "categoria": top["categoria"], "desejos": top["desejos"]},
+        "balanca_media": media(v["balanca"] for v in visitas if v["balanca"] is not None),
+        "permanencia_media": permanencia,
+        "em_curso": em_curso,
+        "acima_media": sum(1 for v in em_curso if v["acima_media"]),
+        "mesas_limpeza": aguardando,
+        "janela_limpeza_min": round(JANELA_LIMPEZA.total_seconds() / 60, 1),
     }
 
 
@@ -1094,6 +1198,8 @@ class Servidor(BaseHTTPRequestHandler):
             return consultar_cliente(banco, partes[1])
         if partes == ["dashboard", "hoje"]:
             return 200, painel_hoje(banco, ler_data(consulta.get("data")))
+        if partes == ["dashboard", "tv"]:
+            return 200, painel_tv(banco)
         if partes in (["dashboard", "analise"], ["visitas.csv"]):
             fim = ler_data(consulta.get("fim"))
             inicio = ler_data(consulta.get("inicio"), fim - timedelta(days=6))
@@ -1122,6 +1228,8 @@ class Servidor(BaseHTTPRequestHandler):
                 return registrar_proxima(banco, codigo, dados)
             if partes[2] == "avaliacao":
                 return avaliar(banco, codigo, dados)
+            if partes[2] == "cadastro":
+                return completar_cadastro(banco, codigo, dados)
         if partes and partes[0] == "cardapio" and len(partes) >= 2:
             dia = ler_data(partes[1])
             if metodo == "POST" and len(partes) == 2:
@@ -1160,7 +1268,7 @@ if __name__ == "__main__":
         ip = endereco_rede()
         if host == "0.0.0.0" and ip:
             print(f"  No celular (mesma rede Wi-Fi):  http://{ip}:{porta}", flush=True)
-        print("  Cliente: /  e  /avaliar   ·   Equipe (com login): /terminal  /cardapio  /dashboard", flush=True)
+        print("  Cliente: /  /minha-visita  /avaliar   ·   Equipe (com login): /terminal  /cardapio  /dashboard", flush=True)
         with closing(conectar()) as banco:
             momento, demo = agora_referencia(banco)
         if demo:

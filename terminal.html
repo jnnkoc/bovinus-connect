@@ -37,6 +37,25 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
 .mesa { display: flex; gap: .8rem; align-items: center; justify-content: center; margin-top: 1rem; }
 .mesa input { width: 140px !important; font-size: 1.4rem; text-align: center; font-weight: 700; }
 .dica-modo { color: #fff; opacity: .8; text-align: center; margin-top: 1rem; font-size: .9rem; }
+
+/* Comprovante: só aparece na impressão. Largura de bobina de 80 mm, mas imprime bem em A4. */
+#comprovante { display: none; }
+@media print {
+  @page { margin: 6mm; }
+  html, body { background: #fff !important; min-height: 0; display: block; }
+  body > :not(#comprovante) { display: none !important; }
+  #comprovante { display: block; width: 72mm; margin: 0 auto; color: #000; text-align: center;
+                 font-family: Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.35; }
+  #comprovante .comp-logo { width: 30mm; }
+  #comprovante .comp-casa { font-weight: 700; font-size: 11pt; margin-top: 1mm; }
+  #comprovante .comp-linha { border-top: 1px dashed #000; margin: 3mm 0; }
+  #comprovante .comp-rotulo { font-size: 9pt; text-transform: uppercase; letter-spacing: .08em; }
+  #comprovante .comp-codigo { font-size: 26pt; font-weight: 800; letter-spacing: .06em; margin: 1mm 0 2mm; }
+  #comprovante .comp-qr { width: 38mm; margin: 0 auto; }
+  #comprovante .comp-qr svg { width: 100%; height: auto; display: block; }
+  #comprovante .comp-frase { font-weight: 700; font-size: 11pt; margin: 3mm 0 1mm; }
+  #comprovante .comp-pequeno { font-size: 8.5pt; }
+}
 </style>
 </head>
 <body data-equipe>
@@ -84,6 +103,7 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
     <h1 id="res-titulo"></h1>
     <p class="sub" id="res-sub"></p>
     <dl class="detalhes" id="res-detalhes"></dl>
+    <button class="btn btn-contorno btn-grande btn-bloco" style="margin-top:1rem" id="res-imprimir" hidden>🖨️ Imprimir comprovante</button>
     <div class="progresso"><span id="res-barra"></span></div>
   </section>
 
@@ -104,8 +124,10 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
     <div class="codigo-grande" id="esp-codigo" style="font-size:clamp(3rem,15vw,5rem);margin:1rem 0"></div>
     <div id="esp-qr" style="width:180px;margin:0 auto 1rem"></div>
     <p class="alerta alerta-aviso" style="font-size:1.15rem"><strong>Guarde este código para a saída e para avaliar.</strong><br>
-      Tire uma foto ou anote.</p>
-    <button class="btn btn-primario btn-enorme btn-bloco" id="esp-pronto">Pronto</button>
+      Tire uma foto, anote ou imprima o comprovante.</p>
+    <p class="mudo" style="margin:.8rem 0 0">Quer juntar pontos? Depois, abra <strong>Minha visita</strong> no app e complete seu cadastro.</p>
+    <button class="btn btn-contorno btn-grande btn-bloco" style="margin-top:1rem" id="esp-imprimir">🖨️ Imprimir comprovante</button>
+    <button class="btn btn-primario btn-enorme btn-bloco" style="margin-top:.8rem" id="esp-pronto">Pronto</button>
     <p class="mudo pequeno" style="margin-top:.8rem">Volta ao início em <span id="esp-tempo">20</span> s</p>
   </section>
 
@@ -114,10 +136,24 @@ body { background: var(--bordo); min-height: 100vh; display: flex; flex-directio
     <h1>Aponte o QR code para a câmera</h1>
     <p class="sub">O registro é feito assim que o código for lido.</p>
     <video id="video" playsinline muted style="width:100%;border-radius:16px;background:#000;aspect-ratio:4/3;object-fit:cover"></video>
-    <canvas id="quadro" hidden></canvas>
     <button class="btn btn-contorno btn-grande btn-bloco" style="margin-top:1rem" id="camera-cancelar">Cancelar</button>
   </section>
 </main>
+
+<!-- Comprovante impresso (window.print). Fica oculto na tela. -->
+<section id="comprovante" aria-hidden="true">
+  <img class="comp-logo" src="/img/logo.png" alt="">
+  <div class="comp-casa">Bovinu's Grill &amp; Beer</div>
+  <div class="comp-pequeno">Unidade Augusta · Almoço self-service</div>
+  <div class="comp-linha"></div>
+  <div class="comp-rotulo">Código da visita</div>
+  <div class="comp-codigo" id="comp-codigo"></div>
+  <div class="comp-qr" id="comp-qr"></div>
+  <p class="comp-frase">Guarde este código — use para avaliar sua visita depois</p>
+  <div class="comp-pequeno">No app Bovinu's Connect, toque em “Minha visita” e digite ou leia o código.</div>
+  <div class="comp-linha"></div>
+  <div class="comp-pequeno" id="comp-detalhe"></div>
+</section>
 
 <script src="/comum.js"></script>
 <script src="/vendor/qrcode.js"></script>
@@ -145,13 +181,13 @@ function tela(nome) {
   ['leitura', 'resultado', 'espontaneo', 'camera', 'outro-dia'].forEach(t => document.getElementById('tela-' + t).hidden = t !== nome);
 }
 
-// ---------- leitura de QR pela câmera ----------
-// Usa BarcodeDetector (Chrome/Edge no Android e Windows) e, se não houver, jsQR (vendor/).
+// ---------- leitura de QR pela câmera (iniciarLeitorQR em comum.js) ----------
+// Usa BarcodeDetector (Chrome/Edge) e, se não houver, jsQR (vendor/).
 // A câmera só funciona em contexto seguro: http://127.0.0.1 / localhost ou HTTPS.
-let fluxo = null, laco = null, detector = null;
+let pararLeitor = null;
 const video = document.getElementById('video');
 const avisoCamera = document.getElementById('aviso-camera');
-if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+if (!cameraAoVivoDisponivel()) {
   document.getElementById('btn-camera').hidden = true;
   avisoCamera.hidden = false;
   avisoCamera.textContent = 'Câmera indisponível neste endereço (precisa de localhost ou HTTPS). Use um leitor USB ou digite o código.';
@@ -160,46 +196,22 @@ if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
 async function abrirCamera() {
   if (ocupado) return;
   try {
-    fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    pararLeitor = await iniciarLeitorQR(video, codigo => {
+      pararLeitor = null;
+      campo.value = codigo;
+      registrar();
+    });
   } catch {
     avisoCamera.hidden = false;
     avisoCamera.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
     return;
   }
   tela('camera');
-  video.srcObject = fluxo;
-  await video.play().catch(() => {});
-  if ('BarcodeDetector' in window) {
-    try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; }
-  }
-  const canvas = document.getElementById('quadro');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  laco = setInterval(async () => {
-    if (!fluxo || video.readyState < 2) return;
-    let texto = null;
-    if (detector) {
-      const achados = await detector.detect(video).catch(() => []);
-      texto = achados[0]?.rawValue || null;
-    } else if (typeof jsQR !== 'undefined') {
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      texto = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })?.data || null;
-    }
-    const codigo = normalizarCodigo(texto);
-    if (codigo) {
-      pararCamera();
-      campo.value = codigo;
-      registrar();
-    }
-  }, 200);
 }
 
 function pararCamera() {
-  clearInterval(laco); laco = null;
-  if (fluxo) fluxo.getTracks().forEach(t => t.stop());
-  fluxo = null;
-  video.srcObject = null;
+  if (pararLeitor) pararLeitor();
+  pararLeitor = null;
 }
 document.getElementById('btn-camera').onclick = abrirCamera;
 document.getElementById('camera-cancelar').onclick = voltarInicio;
@@ -229,7 +241,27 @@ function voltarInicio() {
   campo.focus();
 }
 
-function mostrarResultado(tipo, icone, titulo, sub, detalhes, duracao = 2000) {
+// ---------- comprovante impresso ----------
+function prepararComprovante(v) {
+  document.getElementById('comp-codigo').textContent = v.codigo;
+  document.getElementById('comp-qr').innerHTML = qrSvg(v.codigo);
+  document.getElementById('comp-detalhe').textContent =
+    `${v.origem === 'planejado' ? 'Visita planejada' : 'Cliente espontâneo'} · check-in em ` +
+    `${fmt.dataCurta(v.check_in_em)} às ${fmt.hora(v.check_in_em)}`;
+}
+
+// Abre o diálogo de impressão do navegador. Sem impressora, dá para cancelar ou "Salvar como PDF".
+function imprimirComprovante(depois) {
+  clearTimeout(timerVolta); clearInterval(timerVolta);
+  window.print();          // no Chrome/Edge o script espera o diálogo fechar
+  depois();
+}
+document.getElementById('res-imprimir').onclick = () => imprimirComprovante(voltarInicio);
+document.getElementById('esp-imprimir').onclick = () => imprimirComprovante(() => contagemRegressiva('esp-tempo', 10));
+
+function mostrarResultado(tipo, icone, titulo, sub, detalhes, duracao = 2000, comprovante = null) {
+  document.getElementById('res-imprimir').hidden = !comprovante;
+  if (comprovante) prepararComprovante(comprovante);
   const painel = document.getElementById('tela-resultado');
   painel.className = 'painel resultado ' + tipo;
   painel.style.borderTop = `10px solid var(--${tipo === 'ok' ? 'ok' : tipo === 'aviso' ? 'ambar' : 'erro'})`;
@@ -259,8 +291,11 @@ async function registrar() {
     const r = await api(`/api/jornadas/${codigo}/proxima`, { dados: { modo, mesa: modo === 'caixa' ? mesa.value : undefined } });
     const detalhes = [['Visita', r.visita.codigo], ['Etapa', ETAPAS[r.etapa]], ['Horário', fmt.hora(r.horario)]];
     if (r.etapa === 'check-out' && r.visita.mesa) detalhes.push(['Mesa', String(r.visita.mesa)]);
-    if (r.repetido) mostrarResultado('aviso', '!', TITULOS_REP[r.etapa], 'Nada foi alterado.', detalhes);
-    else mostrarResultado('ok', '✓', TITULOS_OK[r.etapa], r.mensagem, detalhes);
+    // Check-in na entrada: tela fica 8 s, com o botão de imprimir o comprovante.
+    const imprimir = r.etapa === 'check-in' ? r.visita : null;
+    const duracao = imprimir ? 8000 : 2000;
+    if (r.repetido) mostrarResultado('aviso', '!', TITULOS_REP[r.etapa], 'Nada foi alterado.', detalhes, duracao, imprimir);
+    else mostrarResultado('ok', '✓', TITULOS_OK[r.etapa], r.mensagem, detalhes, duracao, imprimir);
   } catch (e) {
     if (e.dados?.outro_dia) return mostrarOutroDia(e.message);
     mostrarResultado('erro', '✕', e.status === 404 ? 'Código não encontrado' : 'Não foi possível registrar', e.message, [['Código', codigo]], 3000);
@@ -304,6 +339,7 @@ async function criarEspontaneo() {
     const v = await api('/api/visitas', { dados: {} });
     document.getElementById('esp-codigo').textContent = v.codigo;
     document.getElementById('esp-qr').innerHTML = qrSvg(v.codigo);
+    prepararComprovante(v);
     tela('espontaneo');
     contagemRegressiva('esp-tempo', 20);
   } catch (e) {

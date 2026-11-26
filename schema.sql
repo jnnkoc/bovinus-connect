@@ -116,4 +116,18 @@ FROM visita v
 LEFT JOIN avaliacao a ON a.visita_id = v.id
 WHERE v.intencao_id IS NULL;
 
+-- Fidelidade por celular, calculada na consulta (sem coluna fixa).
+-- A visita chega ao cliente pelo cliente_id dela ou, se faltar, pelo da intenção correspondente;
+-- a avaliação segue a visita. visitas = visitas com check-out; pontos = avaliações registradas.
+DROP VIEW IF EXISTS fidelidade;
+CREATE VIEW fidelidade AS
+WITH vc AS (
+    SELECT v.id, v.check_out_em, COALESCE(v.cliente_id, i.cliente_id) AS cliente_id
+    FROM visita v LEFT JOIN intencao i ON i.id = v.intencao_id
+)
+SELECT c.id AS cliente_id, c.celular,
+       (SELECT COUNT(*) FROM vc WHERE vc.cliente_id = c.id AND vc.check_out_em IS NOT NULL) AS visitas,
+       (SELECT COUNT(*) FROM avaliacao a JOIN vc ON vc.id = a.visita_id WHERE vc.cliente_id = c.id) AS pontos
+FROM cliente c;
+
 PRAGMA user_version = 2;

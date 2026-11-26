@@ -33,19 +33,6 @@ details.categoria .check.desativado { opacity: .45; }
 .passo-pessoas { display: flex; align-items: center; gap: 1rem; }
 .passo-pessoas button { width: 52px; height: 52px; border-radius: 50%; font-size: 1.5rem; padding: 0; min-height: 0; }
 .passo-pessoas output { font-size: 1.8rem; font-weight: 750; min-width: 2ch; text-align: center; }
-.status-linha { list-style: none; padding: 0; margin: 1rem 0; }
-.status-linha li { display: flex; gap: .9rem; align-items: flex-start; position: relative; padding-bottom: 1.3rem; }
-.status-linha li:last-child { padding-bottom: 0; }
-.status-linha li::before { content: ""; position: absolute; left: 17px; top: 36px; bottom: 0; width: 3px; background: var(--borda); }
-.status-linha li:last-child::before { display: none; }
-.status-linha .bola { width: 37px; height: 37px; border-radius: 50%; display: grid; place-items: center; flex: none;
-                      background: var(--creme-2); color: var(--texto-2); font-weight: 800; border: 3px solid var(--borda); }
-.status-linha li.feito .bola { background: var(--ok); border-color: var(--ok); color: #fff; }
-.status-linha li.feito::before { background: var(--ok); }
-.status-linha li.atual .bola { background: var(--ambar); border-color: var(--ambar); color: var(--texto); }
-.status-linha li.atual strong { color: var(--bordo); }
-.fidelidade { display: flex; gap: .8rem; align-items: center; background: var(--ambar-claro); border-radius: 12px; padding: .8rem 1rem; }
-.fidelidade .num { font-size: 2rem; font-weight: 800; color: var(--bordo); }
 </style>
 </head>
 <body>
@@ -64,7 +51,7 @@ details.categoria .check.desativado { opacity: .45; }
       <p>Planeje sua visita, escolha o que deseja encontrar no buffet e acompanhe sua visita.</p>
       <div class="pilha">
         <a class="btn btn-ambar btn-grande btn-bloco" href="#planejar">Planejar visita →</a>
-        <a class="btn btn-contorno btn-bloco" href="#visita">Minha visita</a>
+        <a class="btn btn-contorno btn-bloco" href="/minha-visita">Minha visita</a>
         <a class="btn btn-contorno btn-bloco" href="/avaliar">Avaliar minha visita</a>
       </div>
     </div>
@@ -132,48 +119,25 @@ details.categoria .check.desativado { opacity: .45; }
     </div>
   </section>
 
-  <!-- MINHA VISITA -->
-  <section id="tela-visita" class="pilha" hidden>
-    <h1>Minha visita</h1>
-    <form id="form-visita" class="cartao" novalidate>
-      <div class="campo"><label for="codigo-busca">Código da visita</label>
-        <div class="linha"><input id="codigo-busca" type="text" placeholder="BOV-XXXX" autocomplete="off"
-               autocapitalize="characters" spellcheck="false" style="flex:1; text-transform:uppercase; font-weight:700; letter-spacing:.05em">
-          <button class="btn btn-primario">Ver status</button></div></div>
-    </form>
-    <p id="erro-visita" class="alerta alerta-erro" role="alert" hidden></p>
-    <div id="painel-visita" class="cartao" hidden>
-      <div class="cartao-cabeca"><h2 id="visita-codigo"></h2><span class="selo" id="visita-origem"></span></div>
-      <div id="visita-qr" class="centro" style="width:160px;margin:0 auto" hidden></div>
-      <ol class="status-linha" id="status-linha"></ol>
-      <p class="mudo pequeno" id="visita-detalhe"></p>
-      <div class="fidelidade" id="fidelidade" hidden><span class="num" id="fid-num"></span><span id="fid-texto"></span></div>
-      <a class="btn btn-primario btn-bloco" id="btn-avaliar" hidden style="margin-top:1rem">Avaliar minha visita →</a>
-      <p class="alerta alerta-ok" id="ja-avaliada" hidden style="margin-top:1rem">Obrigado pela sua avaliação!</p>
-      <p class="mudo pequeno centro" style="margin-top:1rem">Atualiza sozinho a cada 10 segundos.</p>
-    </div>
-  </section>
 </main>
 
 <script src="/comum.js"></script>
 <script src="/vendor/qrcode.js"></script>
 <script>
 const MAX_PRATOS = 3;
-const telas = ['inicio', 'planejar', 'codigo', 'visita'];
+const telas = ['inicio', 'planejar', 'codigo'];
 let cardapioPlanejar = [];
 let pessoas = 2;
 let ultimaIntencao = null;
-let timerVisita = null;
 
 // ---------- navegação por hash ----------
 function mostrarTela() {
   let alvo = location.hash.slice(1) || 'inicio';
+  if (alvo === 'visita') return location.replace('/minha-visita');  // endereço antigo
   if (!telas.includes(alvo) || (alvo === 'codigo' && !ultimaIntencao)) alvo = 'inicio';
   telas.forEach(t => document.getElementById('tela-' + t).hidden = t !== alvo);
   document.getElementById('voltar').hidden = alvo === 'inicio';
-  clearInterval(timerVisita);
   if (alvo === 'planejar') prepararPlanejar();
-  if (alvo === 'visita') prepararVisita();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', mostrarTela);
@@ -340,71 +304,7 @@ document.getElementById('copiar').onclick = async () => {
   try { await navigator.clipboard.writeText(ultimaIntencao.codigo); avisar('Código copiado.', 'ok'); }
   catch { avisar('Anote o código: ' + ultimaIntencao.codigo); }
 };
-document.getElementById('acompanhar').onclick = () => { location.hash = 'visita'; };
-
-// ---------- minha visita ----------
-const campoBusca = document.getElementById('codigo-busca');
-
-function prepararVisita() {
-  const salvo = localStorage.getItem('bovinus_codigo');
-  if (!campoBusca.value && salvo) campoBusca.value = salvo;
-  if (campoBusca.value) buscarVisita();
-}
-
-document.getElementById('form-visita').addEventListener('submit', e => { e.preventDefault(); buscarVisita(); });
-
-async function buscarVisita(silencioso = false) {
-  const erro = document.getElementById('erro-visita');
-  const codigo = normalizarCodigo(campoBusca.value);
-  if (!codigo) { erro.textContent = 'Digite o código no formato BOV-XXXX.'; erro.hidden = false; return; }
-  try {
-    const v = await api('/api/jornadas/' + codigo);
-    erro.hidden = true;
-    campoBusca.value = v.codigo;
-    localStorage.setItem('bovinus_codigo', v.codigo);
-    desenharVisita(v);
-    clearInterval(timerVisita);
-    if (!(v.status === 'encerrada' && v.avaliada)) timerVisita = setInterval(() => buscarVisita(true), 10000);
-  } catch (e) {
-    if (silencioso) return;
-    erro.textContent = e.message; erro.hidden = false;
-    document.getElementById('painel-visita').hidden = true;
-  }
-}
-
-function desenharVisita(v) {
-  document.getElementById('painel-visita').hidden = false;
-  document.getElementById('visita-codigo').textContent = v.codigo;
-  const qrVisita = document.getElementById("visita-qr");
-  qrVisita.hidden = v.status === "encerrada";
-  if (!qrVisita.hidden && qrVisita.dataset.codigo !== v.codigo) { qrVisita.innerHTML = qrSvg(v.codigo); qrVisita.dataset.codigo = v.codigo; }
-  document.getElementById('visita-origem').textContent = v.origem === 'planejado' ? 'Planejada no app' : 'Chegada sem app';
-  const ordem = ['aguardando', 'em_andamento', 'encerrada'];
-  const atual = ordem.indexOf(v.status);
-  const etapas = [
-    ['Aguardando chegada', v.horario_previsto ? `Previsto para ${fmt.dataCurta(v.horario_previsto)} às ${fmt.hora(v.horario_previsto)}` : ''],
-    ['Visita em andamento', v.check_in_em ? `Chegada às ${fmt.hora(v.check_in_em)}` + (v.buffet_concluido_em ? ` · buffet às ${fmt.hora(v.buffet_concluido_em)}` : '') : 'O check-in é feito no totem da entrada'],
-    ['Visita encerrada', v.check_out_em ? (v.saida_estimada ? 'Encerrada automaticamente' : `Saída às ${fmt.hora(v.check_out_em)}`) : 'A saída é registrada no caixa'],
-  ];
-  document.getElementById('status-linha').innerHTML = etapas.map(([titulo, detalhe], i) => {
-    const classe = i < atual || (i === atual && i === 2) ? 'feito' : i === atual ? 'atual' : '';
-    return `<li class="${classe}"><span class="bola">${classe === 'feito' ? '✓' : i + 1}</span>
-      <div><strong>${titulo}</strong><br><span class="mudo pequeno">${esc(detalhe)}</span></div></li>`;
-  }).join('');
-  document.getElementById('visita-detalhe').textContent = v.pratos.length ? 'Pratos de interesse: ' + v.pratos.join(', ') : '';
-  const fid = document.getElementById('fidelidade');
-  fid.hidden = v.visitas_cliente === null;
-  if (v.visitas_cliente !== null) {
-    document.getElementById('fid-num').textContent = v.visitas_cliente;
-    document.getElementById('fid-texto').textContent = v.visitas_cliente === 0
-      ? 'Esta será sua primeira visita registrada. Seja bem-vindo!'
-      : `Você já veio ${v.visitas_cliente} ${v.visitas_cliente === 1 ? 'vez' : 'vezes'} à Bovinu's. Obrigado pela preferência!`;
-  }
-  const btn = document.getElementById('btn-avaliar');
-  btn.hidden = !(v.status === 'encerrada' && !v.avaliada);
-  btn.href = '/avaliar?codigo=' + encodeURIComponent(v.codigo);
-  document.getElementById('ja-avaliada').hidden = !v.avaliada;
-}
+document.getElementById('acompanhar').onclick = () => { location.href = '/minha-visita?codigo=' + ultimaIntencao.codigo; };
 
 carregarInicio();
 mostrarTela();

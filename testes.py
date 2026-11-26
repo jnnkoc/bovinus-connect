@@ -45,7 +45,9 @@ class TesteBovinus(unittest.TestCase):
         cls.gerente = cls.entrar("gerente", SENHA_GERENTE)
         cls.atendente = cls.entrar("atendente", SENHA_ATENDENTE)
         # horário previsto de hoje (10 min atrás: ainda dentro da tolerância de 30 min, então "a chegar")
-        cls.previsto = (app.agora() - timedelta(minutes=10)).astimezone(app.SP)
+        # (logo depois da meia-noite, usa 00:01 de hoje, para a intenção não cair em "outro dia")
+        cls.previsto = max((app.agora() - timedelta(minutes=10)).astimezone(app.SP),
+                           app.inicio_dia(app.hoje_local()) + timedelta(minutes=1))
         cls.dia = cls.previsto.date().isoformat()
         cls.pratos = []
         for nome, cat in (("Picanha", "churrasco"), ("Arroz", "acompanhamento"), ("Salada verde", "salada"), ("Pudim", "sobremesa")):
@@ -99,7 +101,7 @@ class TesteBovinus(unittest.TestCase):
             self.assertTrue(cabecalhos["Location"].startswith("/login?volta="), pagina)
 
     def test_paginas_do_cliente_sao_publicas(self):
-        for pagina in ("/", "/avaliar", "/login", "/estilo.css", "/vendor/qrcode.js", "/img/logo.png"):
+        for pagina in ("/", "/minha-visita", "/avaliar", "/login", "/estilo.css", "/vendor/qrcode.js", "/img/logo.png"):
             self.assertEqual(self.chamar("GET", pagina)[0], 200, pagina)
 
     def test_papeis(self):
@@ -168,6 +170,116 @@ class TesteBovinus(unittest.TestCase):
         self.assertEqual((s, v["origem"], v["status"]), (201, "espontaneo", "em_andamento"))
         self.assertEqual(self.chamar("POST", f"/api/jornadas/{v['codigo']}/proxima", {"modo": "balanca"}, self.atendente)[1]["etapa"], "buffet")
         self.assertEqual(self.chamar("POST", f"/api/jornadas/{v['codigo']}/proxima", {"modo": "caixa"}, self.atendente)[1]["visita"]["status"], "encerrada")
+
+    # ------------------------------------------------------------ fidelidade e cadastro
+    def visita_completa(self, codigo, mesa=None, avaliar=True):
+        self.chamar("POST", f"/api/jornadas/{codigo}/proxima", {"modo": "entrada"}, self.atendente)
+        self.chamar("POST", f"/api/jornadas/{codigo}/proxima", {"modo": "caixa", "mesa": mesa}, self.atendente)
+        if avaliar:
+            s, r = self.chamar("POST", f"/api/jornadas/{codigo}/avaliacao",
+                               {"nota_nps": 10, "nota_buffet": 5, "nota_espera": 5, "nota_atendimento": 5})
+            self.assertEqual(s, 201)
+            return r
+        return self.chamar("GET", f"/api/jornadas/{codigo}")[1]
+
+    def test_fidelidade_por_celular(self):
+        cel = "11977770001"
+        r = self.visita_completa(self.nova_intencao(celular=cel)[1]["codigo"])
+        self.assertEqual((r["cadastro"], r["visitas_cliente"], r["pontos_cliente"]), (True, 1, 1))
+        r = self.visita_completa(self.nova_intencao(celular=cel)[1]["codigo"], avaliar=False)
+        self.assertEqual((r["visitas_cliente"], r["pontos_cliente"]), (2, 1))  # ponto só com avaliação
+        with closing(app.conectar()) as banco:
+            linha = banco.execute("SELECT visitas, pontos FROM fidelidade WHERE celular = ?", (cel,)).fetchone()
+        self.assertEqual(tuple(linha), (2, 1))
+        s, f = self.chamar("GET", f"/api/clientes/{cel}", cookie=self.gerente)
+        self.assertEqual((s, f), (200, {"visitas": 2, "pontos": 1}))
+
+    def test_completar_cadastro_do_espontaneo(self):
+        s, v = self.chamar("POST", "/api/visitas", {}, self.atendente)
+        self.assertEqual((v["cadastro"], v["visitas_cliente"], v["pontos_cliente"]), (False, None, None))
+        rota = f"/api/jornadas/{v['codigo']}/cadastro"
+        self.assertEqual(self.chamar("POST", rota, {"nome": "Ana", "celular": "11977770002"})[0], 400)  # sem LGPD
+        s, r = self.chamar("POST", rota, {"nome": "Ana Nova", "celular": "(11) 97777-0002", "aceite_lgpd": True})
+        self.assertEqual((s, r["cadastro"], r["visitas_cliente"], r["pontos_cliente"]), (200, True, 0, 0))
+        self.assertEqual(self.chamar("POST", rota, {"nome": "Outra", "celular": "11977770009", "aceite_lgpd": True})[0], 409)
+        r = self.visita_completa(v["codigo"])
+        self.assertEqual((r["visitas_cliente"], r["pontos_cliente"]), (1, 1))
+
+        # Celular que já existe (veio de uma visita planejada): usa o cliente existente.
+        cel = "11977770003"
+        self.visita_completa(self.nova_intencao(celular=cel)[1]["codigo"])
+        s, v2 = self.chamar("POST", "/api/visitas", {}, self.atendente)
+        s, r = self.chamar("POST", f"/api/jornadas/{v2['codigo']}/cadastro", {"nome": "Nome Diferente", "celular": cel, "aceite_lgpd": True})
+        self.assertEqual((r["visitas_cliente"], r["pontos_cliente"]), (1, 1))  # já traz o histórico
+        with closing(app.conectar()) as banco:
+            clientes = banco.execute("SELECT nome FROM cliente WHERE celular = ?", (cel,)).fetchall()
+        self.assertEqual([c["nome"] for c in clientes], ["Cliente Teste"])  # um só cadastro, nome mantido
+        # Visita planejada já tem cadastro.
+        planejada = self.nova_intencao(celular="11977770004")[1]
+        self.assertTrue(planejada["cadastro"])
+        self.assertEqual(self.chamar("POST", f"/api/jornadas/{planejada['codigo']}/cadastro",
+                                     {"nome": "X Y", "celular": "11977770005", "aceite_lgpd": True})[0], 409)
+
+    def test_tv_cozinha_e_salao(self):
+        self.assertEqual(self.chamar("GET", "/api/dashboard/tv", cookie=self.atendente)[0], 403)
+        logo = (app.agora() + timedelta(minutes=20)).astimezone(app.SP)
+        mesmo_dia = logo.date() == app.hoje_local()  # perto da meia-noite, +20 min já é amanhã
+        s, _ = self.chamar("POST", "/api/intencoes", {"horario_previsto": logo.isoformat(), "pessoas": 4,
+                                                      "pratos": self.pratos[:1] if mesmo_dia else [],
+                                                      "nome": "Grupo", "celular": "11977770006", "aceite_lgpd": True})
+        self.assertEqual(s, 201)
+        s, aberta = self.chamar("POST", "/api/visitas", {}, self.atendente)  # fica na casa
+        self.visita_completa(self.chamar("POST", "/api/visitas", {}, self.atendente)[1]["codigo"], mesa=77, avaliar=False)
+        self.visita_completa(self.chamar("POST", "/api/visitas", {}, self.atendente)[1]["codigo"], mesa=78, avaliar=False)
+        self.visita_completa(self.chamar("POST", "/api/visitas", {}, self.atendente)[1]["codigo"], mesa=78, avaliar=False)
+        self.visita_completa(self.chamar("POST", "/api/visitas", {}, self.atendente)[1]["codigo"], avaliar=False)  # sem mesa
+
+        s, t = self.chamar("GET", "/api/dashboard/tv", cookie=self.gerente)
+        self.assertEqual(s, 200)
+        if mesmo_dia:
+            self.assertGreaterEqual(t["previstas_proxima_hora"], 4)
+        self.assertGreaterEqual(t["na_casa"]["visitas"], 1)
+        self.assertIsNotNone(t["prato_top"])
+        self.assertIn(aberta["codigo"], [v["codigo"] for v in t["em_curso"]])
+        mesas = [m["mesa"] for m in t["mesas_limpeza"]]
+        self.assertEqual((mesas.count(77), mesas.count(78)), (1, 1))  # uma linha por mesa
+        self.assertTrue(all(m["minutos"] == 0 for m in t["mesas_limpeza"] if m["mesa"] in (77, 78)))
+
+        # Depois da janela de limpeza (45 min), a mesa some da lista.
+        with closing(app.conectar()) as banco:
+            depois = app.agora() + app.JANELA_LIMPEZA + timedelta(minutes=1)
+            antes = app.agora() + app.JANELA_LIMPEZA - timedelta(minutes=1)
+            with mock.patch.object(app, "agora", return_value=antes):
+                self.assertIn(77, [m["mesa"] for m in app.painel_tv(banco)["mesas_limpeza"]])
+            with mock.patch.object(app, "agora", return_value=depois):
+                t = app.painel_tv(banco)
+        self.assertNotIn(77, [m["mesa"] for m in t["mesas_limpeza"]])
+        aberta_tv = next(v for v in t["em_curso"] if v["codigo"] == aberta["codigo"])
+        self.assertTrue(aberta_tv["acima_media"])  # em curso há 46 min > permanência média (~0 min)
+
+    def test_mesas_no_modo_demonstracao(self):
+        """Com agora simulado (12:40): mesa do seed medida pelas 12:40, mesa ao vivo pelo relógio real."""
+        hoje = app.hoje_local()
+        base = datetime.combine(hoje, datetime.min.time(), app.SP)
+        with closing(app.conectar()) as banco:
+            try:
+                banco.execute("INSERT OR REPLACE INTO parametro VALUES ('dados_simulados', '1')")
+                banco.execute("INSERT OR REPLACE INTO parametro VALUES ('demo_agora', '12:40')")
+                for codigo, saida, mesa in (("BOV-SEED", base.replace(hour=12, minute=30), 501),
+                                            ("BOV-MADR", base.replace(minute=25), 502),
+                                            ("BOV-NOIT", base.replace(hour=20, minute=55), 503)):
+                    banco.execute("""INSERT INTO visita (codigo, origem, check_in_em, check_out_em, mesa)
+                                     VALUES (?, 'espontaneo', ?, ?, ?)""",
+                                  (codigo, app.iso(saida - timedelta(minutes=20)), app.iso(saida), mesa))
+                for real, esperado in ((base.replace(minute=30), {501: 10, 502: 5}),      # madrugada
+                                       (base.replace(hour=21), {501: 10, 503: 5})):        # noite
+                    with mock.patch.object(app, "agora", return_value=real), \
+                            mock.patch.dict(app.os.environ, {}, clear=False):
+                        app.os.environ.pop("DEMO_AGORA", None)
+                        mesas = {m["mesa"]: m["minutos"] for m in app.painel_tv(banco)["mesas_limpeza"] if m["mesa"] > 500}
+                    self.assertEqual(mesas, esperado, real)
+            finally:
+                banco.rollback()
 
     def test_regras_da_intencao(self):
         self.assertEqual(self.nova_intencao(pratos=self.pratos[:4])[0], 400)  # máximo 3 pratos

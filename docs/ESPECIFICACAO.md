@@ -33,8 +33,10 @@ Uma única versão web, mobile-first (não fazer site e app separados).
 - **Início**: cardápio do dia + botão "Planejar visita" + "Minha visita".
 - **Planejar**: categorias (Churrasco, Acompanhamento, Salada, Sobremesa) que abrem os pratos do dia para marcar (**até 3 pratos de interesse**); horário previsto; nº de pessoas; nome e celular com aceite LGPD.
 - **Código da visita**: código grande (formato `BOV-XXXX`) + QR. Texto: "Mostre este código na entrada".
-- **Minha visita (acompanhamento)**: o cliente digita o código e **só vê** o status (Aguardando chegada → Visita em andamento → Visita encerrada), atualizando sozinho. **O cliente nunca registra check-in, buffet ou saída pelo app.**
-- **Fidelidade**: "Você já veio X vezes" (contagem por celular, só visitas com check-out).
+- **Minha visita** (`minha-visita.html`, rota `/minha-visita`): o cliente digita ou lê por QR (câmera ao vivo ou foto) o código, planejado ou espontâneo, e **só vê** o status (check-in → buffet → check-out), atualizando sozinho. **O cliente nunca registra check-in, buffet ou saída pelo app.**
+  - Visita sem celular vinculado (espontâneo): formulário nome + celular + LGPD para **completar cadastro**. Celular novo cria o cliente; celular existente usa o cadastro existente.
+  - Com cadastro (planejado já tem): libera **Avaliar**, que abre `/avaliar` com o código preenchido. Link discreto "avaliar sem cadastro" (o consentimento LGPD não pode ser condição para opinar).
+- **Fidelidade**: "Você já veio X vezes" (visitas com check-out) e "Você tem Y pontos" (avaliações registradas), por celular, em Minha visita e logo após enviar a avaliação.
 - **Avaliação** (`avaliar.html`): disponível após o check-out, pelo código (planejado ou espontâneo).
   - Pergunta principal NPS: "De 0 a 10, quanto você recomendaria a Bovinu's a um amigo?"
   - Notas por tema de 1 a 5: Buffet (variedade, qualidade, reposição), Espera, Atendimento.
@@ -46,6 +48,7 @@ Uma tela com **modo** selecionável no topo. **O sistema registra automaticament
 - **Modo Caixa (equipe)**: ler/digitar código → check-out. Campo opcional de nº da mesa.
 - **Modo Balança (opcional)**: ler/digitar código → buffet concluído.
 O buffet é opcional: o check-out funciona sem ele.
+- **Comprovante**: após o check-in (planejado) ou o cadastro espontâneo, botão "Imprimir comprovante" (`window.print()`) com código, QR e "Guarde este código — use para avaliar sua visita depois". Formato de bobina de 80 mm, imprime também em A4.
 
 ### 3. Cardápio do dia (`cardapio.html`, rota `/cardapio`) — ref. `cardapio.png`
 - Selecionar a data; listar os pratos do dia; adicionar, editar e remover.
@@ -63,7 +66,9 @@ Menu lateral apenas com: Dashboard, Cardápio do dia, Terminal (e Mesas, se exis
 - Próximas chegadas previstas (ex.: "12h30–13h: 23 pessoas").
 - Ranking de pratos mais desejados hoje.
 - Funil **só dos planejados**: intenção → check-in → check-out → avaliação. Espontâneos aparecem à parte. A base são **todas** as intenções do dia, inclusive as que ainda vão chegar; abaixo do funil aparece a composição (já chegaram · ainda por chegar · não compareceram).
-- Botão "Modo TV" (opcional): tela cheia com 3 números grandes — clientes no salão, chegadas previstas na próxima meia hora, prato mais desejado.
+- Botão "Modo TV": antes da tela cheia, escolhe **TV Cozinha** ou **TV Salão** (troca lá dentro; também por `#tv-cozinha` / `#tv-salao`).
+  - **TV Cozinha**: pessoas previstas na próxima hora, prato mais desejado do dia, pessoas na casa agora, tempo médio check-in → buffet.
+  - **TV Salão**: pessoas na casa agora, permanência média de hoje com destaque (⚠ + "acima da média") nas visitas em curso que já passaram dela, pessoas previstas na próxima hora e **Mesas aguardando limpeza** ("Mesa 4 — há 12 min").
 
 **Aba Análise (período)**
 - Tendência diária de visitas, conversão e permanência.
@@ -77,6 +82,7 @@ Menu lateral apenas com: Dashboard, Cardápio do dia, Terminal (e Mesas, se exis
 
 ### 5. Mesas (`mesas.html`, rota `/mesas`) — opcional, se der tempo
 Mapa simples dos 3 salões. No check-out com nº de mesa, a mesa vira "suja" com cronômetro; o garçom toca em "limpa". Indicador "tempo médio de mesa suja" no dashboard.
+(Parcial já feito: a lista "Mesas aguardando limpeza" da TV Salão.)
 
 ## Modelo de dados (alvo)
 - `cliente`: id, nome, celular (único), consentimento_em
@@ -89,6 +95,7 @@ Mapa simples dos 3 salões. No check-out com nº de mesa, a mesa vira "suja" com
 - `mesa` (opcional): numero, salao, status, suja_desde
 
 Planejado: o código da intenção vira o código da visita no check-in. Espontâneo: o código é gerado no terminal.
+View `fidelidade` (calculada na consulta): por cliente, `visitas` (com check-out) e `pontos` (avaliações). A visita chega ao cliente pelo `cliente_id` dela ou pelo da intenção; a avaliação segue a visita.
 
 ## Stack (não trocar)
 - Python 3.10+ só com biblioteca padrão (`http.server` + `sqlite3`). **Não adicionar dependências Python.**
@@ -100,7 +107,7 @@ Planejado: o código da intenção vira o código da visita no check-in. Espont�
 - `app.py` — servidor e API REST (contrato no README.md)
 - `schema.sql` — tabelas e views
 - `seed.py` — dados simulados
-- `cliente.html`, `avaliar.html`, `terminal.html`, `cardapio.html`, `dashboard.html`, `mesas.html`
+- `cliente.html`, `minha-visita.html`, `avaliar.html`, `terminal.html`, `cardapio.html`, `dashboard.html`, `mesas.html`
 - `estilo.css` — estilo compartilhado
 - `comum.js` — utilitários JS compartilhados (API, formatação, menu lateral)
 - `img/` — logo oficial
@@ -135,6 +142,11 @@ Bordô/vermelho escuro como cor principal, fundo creme, destaque âmbar/dourado 
 - **Recorrência** = visitas com check-out por cliente (celular) no período.
 - **Chegadas previstas × reais** = soma de pessoas das intenções por 15 min × check-ins por 15 min.
 - **Pratos desejados** = nº de intenções que marcaram cada prato no dia.
+- **Fidelidade** = por celular, visitas com check-out e pontos (1 por avaliação registrada).
+- **Pessoas na casa** = soma de pessoas das visitas com check-in e sem check-out (espontâneo conta 1).
+- **Previstas na próxima hora** = pessoas das intenções com horário entre agora e agora + 1 h, ainda sem check-in.
+- **Acima da média** = visita em curso há mais tempo que a permanência média de hoje.
+- **Mesas aguardando limpeza** = último check-out (não estimado) de cada mesa nos últimos 45 min (`JANELA_LIMPEZA_MIN`).
 - **Tempo de mesa suja** (opcional) = marcada limpa − check-out da visita da mesa.
 - Visita sem check-out após 3 h: fechada automaticamente com `saida_estimada = 1` e excluída da permanência.
 - Intenção sem check-in até horário previsto + 30 min: conta como não convertida.

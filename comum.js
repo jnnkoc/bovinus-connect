@@ -104,6 +104,69 @@ function qrSvg(texto, rotulo = 'QR code do código da visita') {
   return qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true, title: rotulo });
 }
 
+// ---------- leitura de QR (precisa de vendor/jsQR.js na página) ----------
+// Câmera ao vivo só em contexto seguro (localhost/127.0.0.1 ou HTTPS). Foto funciona em qualquer endereço.
+function cameraAoVivoDisponivel() {
+  return window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
+}
+
+function _detectorQR() {
+  if (!('BarcodeDetector' in window)) return null;
+  try { return new BarcodeDetector({ formats: ['qr_code'] }); } catch { return null; }
+}
+
+function _jsqr(fonte, largura, altura, inversao) {
+  if (typeof jsQR === 'undefined' || !largura || !altura) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = largura; canvas.height = altura;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(fonte, 0, 0, largura, altura);
+  const img = ctx.getImageData(0, 0, largura, altura);
+  return jsQR(img.data, largura, altura, { inversionAttempts: inversao })?.data || null;
+}
+
+// Abre a câmera no <video> e chama aoLer('BOV-XXXX') quando ler um código válido.
+// Devolve a função que fecha a câmera. Lança erro se a câmera não abrir.
+async function iniciarLeitorQR(video, aoLer) {
+  const fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  video.srcObject = fluxo;
+  await video.play().catch(() => {});
+  const detector = _detectorQR();
+  let ativo = true, lendo = false;
+  const parar = () => {
+    ativo = false;
+    clearInterval(laco);
+    fluxo.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+  };
+  const laco = setInterval(async () => {
+    if (!ativo || lendo || video.readyState < 2) return;
+    lendo = true;
+    const texto = detector
+      ? (await detector.detect(video).catch(() => []))[0]?.rawValue
+      : _jsqr(video, video.videoWidth, video.videoHeight, 'dontInvert');
+    lendo = false;
+    const codigo = normalizarCodigo(texto);
+    if (codigo && ativo) { parar(); aoLer(codigo); }
+  }, 200);
+  return parar;
+}
+
+// Lê o código de uma foto (input type=file). Devolve 'BOV-XXXX' ou null.
+async function lerQrDeFoto(arquivo) {
+  const imagem = await createImageBitmap(arquivo);
+  const detector = _detectorQR();
+  if (detector) {
+    const achado = (await detector.detect(imagem).catch(() => []))[0]?.rawValue;
+    if (normalizarCodigo(achado)) return normalizarCodigo(achado);
+  }
+  const escala = Math.min(1, 1200 / Math.max(imagem.width, imagem.height));  // fotos grandes deixam o jsQR lento
+  return normalizarCodigo(_jsqr(imagem, Math.round(imagem.width * escala), Math.round(imagem.height * escala), 'attemptBoth'));
+}
+
+function vezes(n) { return `${n} ${n === 1 ? 'vez' : 'vezes'}`; }
+function pontos(n) { return `${n} ${n === 1 ? 'ponto' : 'pontos'}`; }
+
 // Usuário logado (telas da equipe).
 async function usuarioAtual() {
   try { return await api('/api/eu'); } catch { return null; }

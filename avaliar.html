@@ -60,6 +60,10 @@
     <div style="font-size:3rem" aria-hidden="true">🙏</div>
     <h1>Obrigado pela avaliação!</h1>
     <p class="mudo">Sua opinião ajuda a Bovinu's a melhorar o buffet, a espera e o atendimento.</p>
+    <div id="obrigado-fidelidade" class="alerta alerta-ok" hidden style="font-size:1.05rem">
+      <strong id="ob-visitas"></strong><br><strong id="ob-pontos"></strong></div>
+    <div id="obrigado-sem-cadastro" class="alerta alerta-info" hidden>Quer juntar pontos?
+      <a id="link-cadastro">Complete seu cadastro em Minha visita</a> e esta avaliação passa a contar.</div>
     <a class="btn btn-contorno" href="/">Voltar ao início</a>
   </div>
 </main>
@@ -135,10 +139,17 @@ document.getElementById('form-avaliacao').addEventListener('submit', async e => 
   const botao = document.getElementById('enviar');
   botao.disabled = true;
   try {
-    await api(`/api/jornadas/${codigoAtual}/avaliacao`, { dados: {
+    const v = await api(`/api/jornadas/${codigoAtual}/avaliacao`, { dados: {
       nota_nps: notas.nps, nota_buffet: notas.buffet, nota_espera: notas.espera,
       nota_atendimento: notas.atendimento, comentario: comentario.value.trim(),
     } });
+    document.getElementById('obrigado-fidelidade').hidden = !v.cadastro;
+    document.getElementById('obrigado-sem-cadastro').hidden = v.cadastro;
+    document.getElementById('link-cadastro').href = '/minha-visita?codigo=' + encodeURIComponent(v.codigo);
+    if (v.cadastro) {
+      document.getElementById('ob-visitas').textContent = `Você já veio ${vezes(v.visitas_cliente)}`;
+      document.getElementById('ob-pontos').textContent = `Você tem ${pontos(v.pontos_cliente)}`;
+    }
     document.getElementById('form-avaliacao').hidden = true;
     document.getElementById('form-codigo').hidden = true;
     document.getElementById('obrigado').hidden = false;
