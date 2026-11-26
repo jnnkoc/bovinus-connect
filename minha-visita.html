@@ -58,6 +58,16 @@
 
   <p id="erro" class="alerta alerta-erro" role="alert" hidden></p>
 
+  <div id="ajuda-inicial" class="cartao pilha">
+    <h2>Como funciona</h2>
+    <ol class="pequeno" style="margin:0;padding-left:1.2rem;display:grid;gap:.4rem">
+      <li><strong>Planejou pelo app?</strong> Seu cadastro já foi feito ao planejar. Digite o código e veja suas visitas e pontos.</li>
+      <li><strong>Chegou sem o app?</strong> Use o código que o totem da entrada mostrou (ou o do comprovante).
+        Ao abrir a visita, aparece <strong>Complete seu cadastro</strong> com nome e celular.</li>
+      <li>Depois da saída no caixa, avalie a visita e ganhe 1 ponto.</li>
+    </ol>
+  </div>
+
   <section id="painel" class="pilha" hidden>
     <div class="cartao">
       <div class="cartao-cabeca"><h2 id="v-codigo"></h2><span class="selo" id="v-origem"></span></div>
@@ -86,6 +96,7 @@
     <!-- com cadastro: fidelidade + avaliação -->
     <div id="bloco-cliente" class="cartao pilha" hidden>
       <h2>Sua fidelidade</h2>
+      <p class="mudo pequeno" id="cadastro-origem" style="margin:0"></p>
       <div class="fidelidade">
         <div><div class="num" id="f-visitas"></div><div class="txt" id="f-visitas-txt"></div></div>
         <div><div class="num" id="f-pontos"></div><div class="txt" id="f-pontos-txt"></div></div>
@@ -128,6 +139,7 @@ async function buscar(silencioso = false) {
     clearInterval(timer);
     erro.textContent = e.message; erro.hidden = false;
     document.getElementById('painel').hidden = true;
+    document.getElementById('ajuda-inicial').hidden = false;
   }
 }
 document.getElementById('form-codigo').addEventListener('submit', e => { e.preventDefault(); buscar(); });
@@ -136,6 +148,10 @@ document.getElementById('form-codigo').addEventListener('submit', e => { e.preve
 function desenhar(v) {
   visita = v;
   document.getElementById('painel').hidden = false;
+  document.getElementById('ajuda-inicial').hidden = true;
+  document.getElementById('cadastro-origem').textContent = v.origem === 'planejado'
+    ? 'Esta visita já está ligada ao seu celular: o cadastro foi feito quando você planejou pelo app.'
+    : 'Esta visita está ligada ao celular informado no cadastro.';
   document.getElementById('v-codigo').textContent = v.codigo;
   document.getElementById('v-origem').textContent = v.origem === 'planejado' ? 'Planejada no app' : 'Chegada sem app';
   const etapas = [
