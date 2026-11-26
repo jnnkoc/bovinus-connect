@@ -1,7 +1,7 @@
 # Bovinu's Connect
 
 Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hackathon FMU 2026.2**, com o desafio da
-**Bovinu's Grill & Beer** (Unidade Augusta, almoço por quilo).
+**Bovinu's Grill & Beer** (Unidade Augusta).
 
 > O cliente avisa que vem e o que quer encontrar no buffet. A equipe registra chegada, balança e saída com um único
 > código. A gestão passa a ver, ao vivo, uma jornada que antes ninguém media.
