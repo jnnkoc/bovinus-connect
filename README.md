@@ -9,7 +9,7 @@ Projeto da equipe **Janaina Costa, Vitor Nunes e Matheus Vaccari** para o **Hack
 | | |
 | --- | --- |
 | 🌐 **Site do projeto** | [jnnkoc.github.io/bovinus-connect](https://jnnkoc.github.io/bovinus-connect/) — demonstração estática com as telas e simulações |
-| 🎬 **Vídeo (1min43)** | [video/bovinus-connect.mp4](video/bovinus-connect.mp4) — motion design com as telas reais, sem narração |
+| 🎬 **Vídeo (1min43)** | [video/bovinus-connect.mp4](video/bovinus-connect.mp4) — motion design com as telas reais |
 | 🖥️ **Apresentação** | [PDF](slides/bovinus-connect.pdf) · [PPTX editável](slides/bovinus-connect.pptx) |
 | 📄 **Documentação** | [Visão geral](docs/01-visao-geral.md) · [Requisitos](docs/02-requisitos.md) · [Jornada e telas](docs/03-jornada-e-telas.md) · [Diagramas e DER](docs/04-diagramas-e-der.md) · [PDFs](docs/pdf/) · [Especificação](docs/ESPECIFICACAO.md) |
 | 💻 **Rodar o MVP** | [Como rodar](#como-rodar) — Python 3.10+, sem pacotes extras |
